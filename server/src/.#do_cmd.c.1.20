@@ -1,0 +1,817 @@
+/*
+ * Copyright (c) 2007,西安邮电学院Linxu兴趣小组
+ * All rights reserved.
+ * 
+ * 文件名称：命令处理
+ * 摘    要：处理MKD RMD DELE PASV STOR命令
+ * 
+ * 当前版本：1.1
+ * 作    者：聂海海 王亚刚 郭拓 贾孟树
+ * 完成日期：2007年5月30日
+ * 修 改 者：刘洋 林峰 王聪 聂海海
+ * 修改日期：2007年6月16日
+ * 取代版本：1.0
+ * 摘    要：原来增加的命令很符合要求，重建此文件。全部根据要求，现将命令单独在test目录中通过的逐条加入。
+ * 今天仅加入STAT。
+ *14日加入USER。
+ *6.15: 修正英文语法错误，排版错误。
+ *6.16: 添加do_mkd，do_rmd, do_dele, do_retr
+ *6.16:添加do_pass
+ */
+
+#define _GNU_SOURCE
+#include "xylftp.h"
+#ifndef MAX_PATH
+#define MAX_PATH 4096
+#endif
+
+extern struct user_env user_env;
+extern struct run_env run_env;
+   
+static volatile sig_atomic_t IN=0;
+char  *mess_path;
+
+static void _stat_fail_450(void);
+static void _stat_error_421(void);
+static void _stat_error1_501(void);
+static void _stat_error2_501(void);
+static void _stat_error3_501(void);
+static void _stat_fail_550(void);
+static void _stat_sigle1(int);
+/*static void _stat_success_125(void);*/
+static void _stat_success_150(void);
+static void _stat_success_226(void);
+static void _stat_fail_425(void);
+static void _stat_fail_426(void);
+static void _stat_fail_451(void);
+static void _stat_fail_501(void);
+
+int _stat_mkd(const char *path);    
+int _stat_rmd(const char *path);    
+int _stat_dele(const char *path);
+int _stat_retr();	
+void *_stat_pthread(void *tid);  
+
+/*implement of USER*/
+int do_user(char username[])
+{
+	const char *anonymous = "anonymous";
+	const char *inf_buf = "331 please send you password.\r\n";
+	const char *no_anonymous = "555 Anonymous not allowed on this server.\r\n"; 
+	const char *noname = "500 USER: command requires a parameter.\r\n";	
+	const char *logged = "503 You have already logged in!\r\n";
+
+	if (username[0] == '\0') {
+		write(user_env.connect_fd, noname, strlen(noname));
+		return -1;
+	}	
+	
+	if (user_env.login_in == TRUE) {
+		write(user_env.connect_fd, logged, strlen(logged));
+		return -1;
+	}
+
+	if (strcmp(username, anonymous) == 0){
+		if(run_env.anonymous_enable){
+			strcpy(user_env.user_name, username);	
+			write(user_env.connect_fd, inf_buf, strlen(inf_buf));
+		}
+		else {
+			write(user_env.connect_fd, no_anonymous, strlen(no_anonymous));
+		}			
+	}
+
+	/*anonymous client authentication*/
+	else {
+		strcpy(user_env.user_name, username);		
+		write(user_env.connect_fd, inf_buf, strlen(inf_buf));
+	}
+
+	return 0;
+}
+/*implement of USER*/
+
+/*implement of PASS*/
+int do_pass(char *pass)
+{
+	char mess[50];
+	char password[16];
+	char md[16];
+	char name[16];
+	const char *log_error = "Login failed!\r\n";
+	const char *logged = "503 You have already logged in!\r\n";
+	FILE *fp;
+	size_t len = 0;
+	ssize_t k;
+	char *line = NULL,*tmp;
+	int i, j, pass_len, id;
+
+	if (user_env.login_in == TRUE) {
+		write(user_env.connect_fd, logged, strlen(logged));
+		return -1;
+	}
+
+	if (strcmp(user_env.user_name, "anonymous") == 0) {
+		snprintf(mess, 50, "230 User anonymous logged in!\r\n");
+		user_env.login_in = TRUE;
+		write(user_env.connect_fd, mess, strlen(mess));
+		return 0;
+	} 
+
+	if ((fp = fopen(run_env.user_pass_file, "r")) == NULL) {
+		write_log("open user_pass_file error",0);
+		write(user_env.connect_fd, log_error, strlen(log_error));
+		return -1;
+	}
+
+	while ((k = getline(&line, &len, fp)) != -1) {
+		fscanf(fp, "%d", &id);
+		tmp = line;
+		j = 0;
+		for (i = 0; ; i++) {
+			if (tmp[i] == ':') {
+				i = i + 2;
+				break;
+			}
+		}
+		for( ; ; i++) {
+			if(tmp[i] == ':') {
+				name[j] = '\0';
+				break;
+			} else {
+				name[j++] = tmp[i];
+			}
+		}
+
+		if (strcmp(name, user_env.user_name) == 0) break;
+		
+	}
+
+	if (k == -1) {
+		snprintf(mess, 50, "530 Login incorrect!\r\n");
+		write(user_env.connect_fd, mess, strlen(mess));
+		free(line);
+		return -1;
+	}
+	
+	user_env.user_id = id;
+	tmp = line;
+	for (i = 0, j = 0; tmp[i] != '\n' && j < 6; i++) {
+		
+		if (tmp[i] == ':') {
+			j++;
+		}
+	}	
+	
+	for (j = 0; j < 16; ) {
+		password[j++] = tmp[i++];
+	}
+	free(line);
+
+	pass_len=strlen(pass);	
+	MD5((const unsigned char *)pass, pass_len, (unsigned char *)md);   
+
+	if (!memcmp(password, md, 16) ) { 
+			snprintf(mess, 50, "230 User %s logged in.\r\n", user_env.user_name);
+			user_env.login_in = TRUE;
+			write(user_env.connect_fd, mess, strlen(mess));
+			return 0;
+	} else {
+		snprintf(mess, 50, "530 Login incorrect!\r\n");
+		write(user_env.connect_fd, mess, strlen(mess));
+		return -1;			
+	}		
+	
+}
+
+/*implement of PASS*/
+
+
+/*implement of STAT*/
+
+static char* _get_line_info(struct stat *stat_buf, char *buf, int *width)
+{
+	char att[11] = "----------", tm[26];
+	struct passwd *pwd = getpwuid(stat_buf->st_uid);
+	struct group *grp = getgrgid(stat_buf->st_gid);
+	unsigned int t = S_IRUSR;
+	int i;
+
+	if (S_ISREG(stat_buf->st_mode)) {
+		att[0] = '-';
+	}
+	else if (S_ISDIR(stat_buf->st_mode)) {
+		att[0] = 'd';
+	}
+	else if (S_ISCHR(stat_buf->st_mode)) {
+		att[0] = 'c';
+	}
+	else if (S_ISBLK(stat_buf->st_mode)) {
+		att[0] = 'b';
+	}
+	else if (S_ISFIFO(stat_buf->st_mode)) {
+		att[0] = 'p';
+	}
+	else if (S_ISLNK(stat_buf->st_mode)) {
+		att[0] = 'l';
+	}
+	else if (S_ISSOCK(stat_buf->st_mode)) {
+		att[0] = 's';
+	}
+	for (i = 1;i < 10;i++,t >>= 1) {
+		if (stat_buf->st_mode & t) {
+			switch (i % 3) {
+			case 1: att[i] = 'r';
+				break;
+			case 2: att[i] = 'w';
+				break;
+			case 0: att[i] = 'x';
+			}
+		}
+	}
+	if (snprintf(tm, 25, "%s", ctime(&(stat_buf->st_ctime))) >= 25) {
+		write_log("Read system time error!", 0);
+	}
+	if (snprintf(buf, MAX_PATH, "%s% *d %*s %*s% *d %s", att, width[2], (size_t)stat_buf->st_nlink, width[0],
+				pwd->pw_name,width[1], grp->gr_name,width[3], (size_t)stat_buf->st_size, tm) == -1){
+		write_log("The path string is overflow!", 0);
+	}
+	return buf;	
+}
+
+static int _get_int_len(int n)
+{
+	int i;
+	for (i = 1;n /= 10;i++) {
+		;
+	}
+	return i;
+}
+
+static int _stat_no_arg()
+{
+	char msg[MAX_MSG_LEN]={0};
+	if (snprintf(msg, MAX_MSG_LEN, "211-Status for user %s from %s:\r\n"
+			"211-Stored %d files,%d KB\r\n211-Retrieved %d files,%d KB\r\n211 End of Status.\r\n",
+			user_env.user_name, user_env.client_ip, user_env.upload_files,
+			user_env.upload_kbytes, user_env.download_files, user_env.download_kbytes) == -1) {
+		write_log("The message is overflow.",0);
+	}
+	return write(user_env.connect_fd, msg, strlen(msg));
+}
+
+static int _stat_with_arg(const char *cmd_arg)
+{
+	char buf[MAX_PATH], full_path[MAX_PATH], tmp[MAX_PATH];
+	const char *not_found = "450 Target path doesn't exist.\r\n";
+	struct dirent *direntp;
+	DIR *target_dir;
+	struct stat stat_buf;
+	struct passwd *pwd;
+	struct group *grp;
+	int max_width[4] = {0}; /*max length of user name, group name,link number and the file length number*/
+
+	if (*cmd_arg == '/') {
+		if (snprintf(buf, MAX_PATH, "%s%s", run_env.ftp_dir, cmd_arg) == -1) {
+			write_log("Path string overflows.", 0);
+		}
+	}
+	else {
+		if (snprintf(buf, MAX_PATH, "%s%s%s", run_env.ftp_dir, user_env.current_path, cmd_arg) == -1) {
+			write_log("Path string overflows.", 0);
+		}
+	}
+
+	strcpy(full_path, buf); /*the length of buf won't greater than the full_path so it's safe.*/
+
+	if (!(target_dir = opendir(buf))) {
+		write(user_env.connect_fd, not_found, strlen(not_found));
+		return closedir(target_dir);
+	}
+
+	while ((direntp = readdir(target_dir)) != NULL) {
+		int t;
+		
+		if (snprintf(buf, MAX_PATH, "%s/%s", full_path, direntp->d_name) == -1) {
+			write_log("Path string overflows.", 0);
+		}
+
+		if (stat(buf, &stat_buf) == -1) {
+			write_log("Read local file status error", 0);
+			closedir(target_dir);
+			return -1;
+		}
+
+		pwd  = getpwuid(stat_buf.st_uid);
+		grp = getgrgid(stat_buf.st_gid);
+
+		max_width[0] = (t = strlen(pwd->pw_name)) > max_width[0]?t:max_width[0];
+		max_width[1] = (t = strlen(grp->gr_name)) > max_width[1]?t:max_width[1];
+		max_width[2] = (t = _get_int_len(stat_buf.st_nlink)) > max_width[2]?t:max_width[2];
+		max_width[3] = (t = _get_int_len(stat_buf.st_size)) > max_width[3]?t:max_width[3];
+	}
+	rewinddir(target_dir);
+
+	if (snprintf(buf, MAX_PATH, "211-Status of %s%s\r\n", user_env.current_path, cmd_arg) == -1) {
+		write_log("Path string overflows.",0);
+	}
+
+	write(user_env.connect_fd, buf, strlen(buf));
+
+	while ((direntp = readdir(target_dir)) != NULL) {
+		if (*(direntp->d_name) == '.') {
+			continue;
+		}
+		if (snprintf(buf, MAX_PATH,"%s/%s", full_path, direntp->d_name) == -1) {
+			write_log("Path string overflows.", 0);
+		}
+
+		if (stat(buf, &stat_buf) == -1) {
+			write_log("Read local file status error", 0);
+			closedir(target_dir);
+			return -1;
+		}
+		if (snprintf(buf, MAX_PATH, "211-%s %s\r\n", _get_line_info(&stat_buf, tmp, max_width),
+				direntp->d_name) == -1) {
+			write_log("Path string overflows.", 0);
+		}
+		write(user_env.connect_fd, buf, strlen(buf));
+	}
+
+	if (snprintf(buf, MAX_PATH, "211 End of Status.\r\n") == -1) {
+		write_log("Path string overflows.", 0);
+	}
+	write(user_env.connect_fd, buf, strlen(buf));
+	return closedir(target_dir);
+}
+
+int do_stat(const char *cmd_arg)
+{
+	if (!strlen(cmd_arg)) {
+		return _stat_no_arg();
+	}
+
+	return _stat_with_arg(cmd_arg);
+}
+/*end of the implement of STAT*/
+
+/* 命令MKD的处理 */
+int do_mkd(const char *path)           /*处理命令MKD的入口*/
+{
+	char str[PATH_NAME_LEN] = {""};
+	if (user_env.enable_upload == 1) {                  /*判断权限*/
+		if (path[0] == '/') {                   /*参数是路径名?*/
+                	strcpy(str, run_env.ftp_dir);
+                	path=strcat(str,path);
+             	}
+		else {                                 /*参数是目录名?*/
+			strcpy(str, user_env.current_path);                
+			if(str[strlen(str)-1] != '/') strcat(str, "/");
+                	path=strcat(str, path);
+		}
+		if(_stat_mkd(path) == 0) {
+			return 0;
+        	}
+        	else {
+        		return -1;
+		}
+ 	}
+	else {
+            _stat_error_421();
+            return -1;
+        }
+     }
+
+int _stat_mkd(const char *path)
+{     
+	char buf[512]="257 Successfully create directory:";
+	printf("mkd: path=%s \r\n", path);
+	if (mkdir(path,S_IRWXU) == 0) {              /*创建目录成功*/
+		strcat(buf,path);
+		strcat(buf,"\r\n");
+		/*printf("mkdir ok at %s",path);*/
+		write(user_env.connect_fd,buf,strlen(buf)+1);
+		return 0;
+	}
+	else {
+		if(errno == EEXIST){
+			_stat_error1_501();
+        	} 
+		else if (errno == ENAMETOOLONG) {
+			_stat_error2_501();
+		} 
+    		else {
+			_stat_fail_450();
+		}
+		return -1;
+	}
+}
+
+
+/*
+ *命令RMD的处理
+ */
+int do_rmd(const char *path)                /*处理命令RMD的入口*/
+{
+	char str[PATH_NAME_LEN]={""};
+	if (user_env.enable_upload == 1) {	/*判断权限*/
+		if (path[0] == '/') {	/*参数是路径名?*/
+			strcat(str, run_env.ftp_dir);
+			path=strcat(str,path);
+		}
+		else {	/*参数是目录名?*/
+			strcpy(str, user_env.current_path);
+			if(str[strlen(str)-1] != '/') {
+				strcat(str, "/");
+			}
+			path=strcat(str,path);
+		}
+		if(_stat_rmd(path) == 0) {
+			return 0;
+		}
+		else {
+			return -1;
+		}
+	}
+        else {
+            _stat_error_421();
+            return(-1);
+	}
+}
+
+
+int _stat_rmd(const char *path)
+{
+	char *buf="250 Request successfully finished!\r\n";
+	printf("rmdir at %s \r\n",path);
+	if (rmdir(path) == 0) {	/*删除目录成功*/
+		write(user_env.connect_fd,buf,strlen(buf)+1);
+		return 0;
+        }
+	else {
+		if(errno == ENOENT) {
+			_stat_error3_501();
+		} 
+		else if (errno == ENAMETOOLONG) {
+			_stat_error2_501();
+		} 
+		else {
+			_stat_fail_450();
+		}
+		return -1;
+	}
+}
+
+/*
+ *命令DELE的处理
+ */
+int do_dele(const char *path)          /*处理命令DELE的入口*/
+{
+	char str[PATH_NAME_LEN]={""};
+	if (user_env.enable_upload==1) {    /*判断权限*/
+		if (path[0] == '/') {         /*参数是路径名?*/
+			strcat(str, run_env.ftp_dir);
+			path=strcat(str,path);
+		}
+		else{       /*参数是目录名?*/
+			strcpy(str, user_env.current_path);
+			if(str[strlen(str)-1] != '/') {
+				strcat(str, "/");
+			}
+			path=strcat(str,path);
+		}
+		if(_stat_dele(path) == 0) {
+			return 0;
+		}
+		else {
+			return -1;
+		}
+	}
+	else {
+		_stat_fail_550();
+		return -1;
+	}
+}
+
+int _stat_dele(const char *path)
+{
+	char *buf="250 File sucessfully deleted!\r\n";
+	printf("dele at %s \r\n",path);
+	if(unlink(path) == 0) {	/*删除文件成功*/
+		write(user_env.connect_fd,buf,strlen(buf)+1);
+		return 0;
+	}
+	else {
+		if(errno == ENOENT) {
+			_stat_error3_501();
+		}
+		else if(errno == ENAMETOOLONG) {
+			_stat_error2_501();
+		}
+		else { 
+			_stat_fail_450();
+		}
+		return -1;
+	} 
+}
+
+/*
+ *命令RETR的处理
+ */
+void _stat_sigle1(int unused)
+{
+	(void)unused;
+	IN = 1;
+}
+
+void *_stat_pthread(void *tid)   /*被建立的线程*/
+{        
+	int retval;
+	int *nump;
+	int num;
+	FILE *fp;
+	char buf;
+	nump=(int *)tid;
+	num=*nump;
+	if((fp=fopen(mess_path,"r")) != NULL) {
+		_stat_success_150();
+		while(!feof(fp)) {
+			buf=fgetc(fp);
+			write(user_env.data_fd,&buf,1);      /*传输一字节的数据*/
+		} 
+		fclose(fp); 
+		_stat_success_226();
+	} else {
+		_stat_fail_501();
+	} 
+	close(user_env.data_fd); 
+	pthread_kill(num,SIGINT); 
+	pthread_exit(&retval);
+
+}
+
+int _stat_retr()
+{       
+	struct sigaction act;
+	act.sa_handler=_stat_sigle1;
+	act.sa_flags = 0;
+	pthread_t tid;
+	char comm[5];
+	printf("user_path = %s\n",mess_path);
+	if((sigfillset(&act.sa_mask)) == -1 
+		|| (sigdelset(&act.sa_mask,SIGINT)) == -1) {
+        	return -1;
+	}
+	if((sigprocmask(SIG_SETMASK,&act.sa_mask,NULL)) == 0) {
+       			/*除SIGINT外阻塞所有信号*/
+		if(pthread_create(&tid,NULL,_stat_pthread,&tid) != 0) {  /*开始执行线程*/ 
+			return -1;
+		}
+		if(sigaction(SIGINT,&act,NULL) != 0) { /*确定信号的处理函数,用函数sigle1处理*/
+			pthread_kill(tid,SIGINT);
+			return -1;
+		}		
+ 		while(!IN) {
+		 	read(user_env.connect_fd,&comm,5);
+#ifdef DEBUG
+			printf("0:%c 1:%c 2:%c 3:%c 4:%c",comm[0],comm[1],comm[2],comm[3],comm[4]);
+#endif
+			if(comm[2]=='B' && comm[3]=='O' && comm[4]=='R') {
+         			IN=1;
+				pthread_kill(tid,SIGINT);
+				close(user_env.data_fd);
+				_stat_fail_426();
+			}
+        	} 
+		return 0;
+	} else {
+		return -1;	
+	}
+}
+int do_retr(char *path)
+{
+	char str[PATH_NAME_LEN]={""};
+	if (run_env.local_umask == 1) {                               /*判断权限*/
+		if (path[0] == '/') {                               /*参数是路径名?*/
+			strcat(str,run_env.ftp_dir);
+			path=strcat(str,path);
+             	} else {                      /*参数是文件名?*/
+			strcpy(str,user_env.current_path);
+			if(str[strlen(str)-1] != '/') strcat(str,"/");
+			path=strcat(str,path);
+            	}
+		mess_path = path;
+    		if(_stat_retr() == -1) {
+		   	_stat_fail_451();
+			close(user_env.data_fd);
+			return -1;
+		} else {
+			return 0;
+		}
+	} else { 
+    		_stat_error_421();
+		close(user_env.data_fd);
+		return -1;
+	}
+}
+
+/*命令执行失败*/
+void    _stat_fail_450(void)
+{
+	const char *buf="450 File operation failed!\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+
+/*出现错误*/
+void    _stat_error_421(void)
+{
+	const char *buf="421 Service not available, closing control connection.\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+
+/*命令执行失败*/
+void    _stat_fail_550(void)
+{
+	const char *buf="550 Requested action not taken. File unavailable.\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+
+/*出现错误*/
+void    _stat_error1_501(void)
+{
+	const char *buf="501 Arguments is wrong,the filename is exists!\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+
+void    _stat_error2_501(void)
+{
+	const char *buf =
+		"501 Diretory or file name is too long!\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+
+void     _stat_error3_501(void)
+{
+	const char *buf=
+		"501 Arguments is wrong,the file or directory is not exists!\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+
+void _stat_success_150(void)
+{ 
+	const char *buf="150 File status okay; about to open data connection.\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+
+void _stat_success_226(void)
+{ 
+	const char *buf="226 Closing data connection."
+             "Requested file action successful.\r\n";		
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+
+void _stat_fail_425(void)
+{
+	const char *buf="425 Can't open data connection.\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+} 
+void _stat_fail_426(void)
+{
+	const char *buf="426 Connection closed; transfer aborted.\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+} 
+
+void _stat_fail_451(void)
+{
+	const char *buf="451 Requested action aborted: local error in processing.\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+ 
+void _stat_fail_501(void)
+{
+	const char *buf="501 Syntax error in parameters or arguments.\r\n";
+	write(user_env.connect_fd, buf, strlen(buf));
+}
+
+/*implement the MODE*/
+int do_mode(const char *arg)
+{
+	char *succ = "200 MODE S OK.\r\n";
+	char *fail = "504 Command not implemented for that parameter.\r\n";
+	if ((strlen(arg) == 1) && ((*arg == 's') || (*arg == 'S'))) {
+		write(user_env.connect_fd,succ,strlen(succ));
+		return 0;
+	}
+	else {
+		write(user_env.connect_fd,fail,strlen(fail));
+		return 1;
+	}
+}
+/*end of implement MODE*/
+#include <net/if.h>
+#include <net/if_arp.h>
+#include <sys/ioctl.h>
+int get_local_ip_address(int sock, char* ip_addr)
+{
+#define MAXINTERFACES 16
+	char *ip=NULL;  
+	int fd = sock, intrface;    
+	struct ifreq buf[MAXINTERFACES];    
+	struct ifconf ifc;    
+
+	ifc.ifc_len = sizeof buf;    
+	ifc.ifc_buf = (caddr_t)  buf;    
+	if (!ioctl(fd, SIOCGIFCONF, (char*)&ifc))
+	{ 
+			intrface = ifc.ifc_len / sizeof(struct ifreq);
+			while (intrface-- > 0)    
+			{    
+				if (!(ioctl(fd, SIOCGIFADDR, (char*)&buf[intrface])))    
+				{    
+					ip = (inet_ntoa(((struct sockaddr_in*)(&buf[intrface].ifr_addr))->sin_addr));
+					strcpy(ip_addr, ip);   
+					break;  
+				}
+			} 
+	} 
+	return 0;
+}
+
+int do_pasv()
+{
+	char ip_addr[INET_ADDRSTRLEN] = {0};  /* the length must be changed !!!!!!!!*/
+	char port_buf[256]={0};
+	const char *pasv_ready = "125 Data connection established successfully, ready for transaction.\n";
+	const char *pasv_fail = "425 Data connection failed.\n";
+
+	int sock, ret;
+	int data_port; 
+	int opt = SO_REUSEADDR;
+
+	struct timeval tv;
+	tv.tv_sec = run_env.data_connection_timeout;
+	tv.tv_usec = 0;
+
+	socklen_t i;
+	struct sockaddr_in data, cliaddr;
+	unsigned int port, port1, port2;
+	
+
+	bzero(&data, sizeof(data)); 
+	data_port = 0;
+
+	data.sin_family = AF_INET;    /*建立数据连接*/
+	data.sin_port = htons(data_port);
+	data.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	i = sizeof(cliaddr);
+
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if(sock < 0){
+		printf("Error in creating socket.\n");
+		return -3;
+	} 
+	get_local_ip_address(sock, ip_addr);
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
+  	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+	if (bind(sock, (struct sockaddr *)&data, i) != 0){
+#ifdef DEBUG
+		perror("bind");
+#else
+		write_log("Can't bind!", 0);
+#endif
+		return -4;
+	}
+
+	getsockname(sock, (struct sockaddr *)&data, (socklen_t*) &i ); 
+#ifdef DEBUG
+	printf("pasv: ip=%s\n",  ip_addr);
+	printf("pasv: port=%d\n", ntohs(data.sin_port));
+#endif
+	port = ntohs(data.sin_port);
+	port1 = port / 256;
+	port2 = port % 256;
+
+	snprintf(port_buf, 256, "227  Entering Passive Mode (%s,%d,%d).\n", ip_addr, port1, port2);
+	write(user_env.connect_fd, port_buf, strlen(port_buf));
+
+	if(listen(sock, 1) != 0){
+		printf("Error in listening.\n");
+		return -5;
+	}
+
+	ret = accept(sock, (struct sockaddr *)&cliaddr, &i);
+	if(ret!=-1){
+		user_env.data_fd = ret;
+		write(user_env.connect_fd, pasv_ready, strlen(pasv_ready));
+		close(sock);		
+		return 0;				
+	} 
+	else{
+		write(user_env.connect_fd, pasv_fail, strlen(pasv_fail));
+		close(sock);		
+		return -6;
+	}
+} 
+

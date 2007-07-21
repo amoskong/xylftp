@@ -77,7 +77,7 @@ int xyl_listen(short port)
 {
 	int socket_fd;
 	struct sockaddr_in server_addr;
-	bzero((char*) &server_addr,sizeof(server_addr));	/*initial socket address to zero*/
+	bzero(&server_addr, sizeof(server_addr));	/*initial socket address to zero*/
 	server_addr.sin_family = AF_INET;			/*use IPv4*/
 	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);	/*use localhost IP*/
 	server_addr.sin_port = htons(port);			/*convert from host byte order to network byte order*/
@@ -132,7 +132,8 @@ int xyl_accept(int socket_fd)
 	struct sockaddr_in client_addr;
 	while (1) {
 		len = sizeof(client_addr);
-		if ((connect_fd = accept(socket_fd,(struct sockaddr *)&client_addr,&len)) == -1 && errno == EINTR) {
+		if ((connect_fd = accept(socket_fd, (struct sockaddr *)&client_addr,&len)) == -1
+				&& errno == EINTR) {
 			continue;
 		}
 		if (connect_fd == -1) {
@@ -152,7 +153,6 @@ int xyl_accept(int socket_fd)
 		}
 		break;
 	}
-	user_env.client_ip = malloc(sizeof(char) * (strlen(inet_ntoa(client_addr.sin_addr)) + 1));
 	strcpy(user_env.client_ip, inet_ntoa(client_addr.sin_addr));
 	return connect_fd;
 }
@@ -167,7 +167,7 @@ int xyl_connect(char *hostname,short port)
 
 	server_addr.sin_port = htons(port);
 	server_addr.sin_family = AF_INET;
-	if ((server_addr.sin_addr.s_addr = inet_addr(hostname)) == (unsigned int)-1) {
+	if ((inet_aton(hostname, &server_addr.sin_addr)) == 0) {
 		perror("invalid address\n");
 		return -1;
 	}
@@ -190,7 +190,7 @@ int xyl_connect(char *hostname,short port)
 
 	while (1) {
 		len = sizeof(server_addr);
-		if (((ret = connect(socket_fd,(struct sockaddr *)&server_addr,len)) == -1 && errno == EINTR)
+		if (((ret = connect(socket_fd, (struct sockaddr *)&server_addr, len)) == -1 && errno == EINTR)
 				|| errno == EALREADY) {
 			continue;
 		}

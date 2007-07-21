@@ -91,7 +91,7 @@ struct user_env{
 	char user_name[USER_NAME_LEN];		/*登录的用户名*/
 	unsigned int user_id;			/*登录的用户ID*/
 	unsigned int client_data_port;		/*客户端数据连接使用端口*/
-	char *client_ip;			/*客户端ip*/
+	char client_ip[16];			/*客户端ip*/
 	unsigned short client_port;		/*客户所使用的端口号*/
 	unsigned long login_time;		/*登录时间*/
 	unsigned long last_operation_time;	/*上次操作时间*/

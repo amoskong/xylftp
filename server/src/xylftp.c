@@ -45,7 +45,6 @@ static void _init_env(void)
 	user_env.login_in = FALSE;
 	strcpy(user_env.user_name, "");
 	user_env.client_data_port = 0;
-	user_env.client_ip = NULL;
 	user_env.client_port = 0;
 	user_env.login_time = 0;
 	user_env.last_operation_time = 0;
@@ -109,5 +108,4 @@ void free_sources(void)
 	free(run_env.user_pass_file);
 	free(run_env.ftpd_banner);
 	free(run_env.log_file);
-	free(user_env.client_ip);
 }

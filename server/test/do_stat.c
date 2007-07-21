@@ -8,7 +8,7 @@
  *           而不是user_cmd.arg，故改之。user_cmd原类型为struct p_cmd 改为struct parse_cmd
  */
 
-#include "../src/xylftp.h"
+#include "xylftp.h"
 
 #ifndef TEST
 #define TEST

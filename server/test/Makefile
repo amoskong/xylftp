@@ -6,9 +6,13 @@
 
 CC=gcc
 CFLAGS= -Wall -W
-LDFLAGS= -lssl -lpthread
+LDFLAGS= -lssl
 
-all: do_stat read_configure test_parse_cmd do_mode test_do_pass
+prepare:
+	cp ../src/xylftp.h ./
+	cp ../src/do_cmd.h ./
+
+all: prepare do_stat read_configure test_parse_cmd do_mode test_do_pass
 
 do_stat: do_stat.c 
 	$(CC) $(CFLAGS) $(LDFLAGS) -DDEGUG -ggdb -o $@ $^
@@ -27,3 +31,4 @@ test_do_pass: test_do_pass.c
 
 clean:
 	rm -f do_stat read_configure test_parse_cmd do_mode test_do_pass
+	rm -f ./xylftp.h ./do_cmd.h

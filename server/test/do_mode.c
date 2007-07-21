@@ -10,7 +10,7 @@
  * 完成日期：2007年6月13日
  */
 
-#include "../src/xylftp.h"
+#include "xylftp.h"
 
 #ifndef TEST
 #define TEST

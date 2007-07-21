@@ -17,31 +17,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include "xylftp.h"
 
-typedef unsigned int bool;
-#define TRUE 1
-#define FALSE 0
-#define _BUFFER_LENGTH 150
-#define CONFIG_FILE "/etc/xylftp/xylftp.conf"
-#define PATH_NAME_LEN 1024
 #define CONFIG_NUM 13	/*item number of the configue file*/
-
-struct run_env{
-	bool anonymous_enable;				/*是否允许匿名登录*/
-	unsigned short ftp_port;			/*FTP使用的端口号*/
-	unsigned int local_umask;			/*上传文件权限*/
-	unsigned int log_file_enable;			/*是否启用日志*/
-	char *log_file;					/*日志文件存储路径*/
-	unsigned int idle_session_timeout;		/*控制链接的最大空闲时间，超时断开链接*/
-	unsigned int data_connection_timeout;		/*数据链接的最大空闲时间，超时断开链接*/
-	char *ftpd_banner;				/*登录欢迎信息*/
-	unsigned int max_clients;			/*允许的最大客户数目*/
-	unsigned int max_links;				/*允许的最大链接数目*/
-	unsigned int passive_port_max;			/*被动模式下监听的端口范围*/
-	unsigned int passive_port_min;
-	char ftp_dir[PATH_NAME_LEN];					/*FTP根目录位置*/
-	char *user_pass_file;				/*用户数据文件目录*/
-}run_env;
+struct run_env run_env;
 
 int _read_line(int fd,char *buf);
 int _analyze_para(char *buf,int *array);

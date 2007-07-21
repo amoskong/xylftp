@@ -14,8 +14,8 @@
  */
 
 
-#include "../src/xylftp.h"
-#include "../src/do_cmd.h"
+#include "xylftp.h"
+#include "do_cmd.h"
 
 #define MAX_CMD 5
 #define MAX_ARG 4096
@@ -84,10 +84,10 @@ int _cmd_num(struct parse_cmd *p_cmd)
 
 
 int parse_cmd(char *p_buf)
-{	
-	char	*user_name = "";
+{
 	char	*rnfr_arg = "";
 /*
+	char	*user_name = "";
 	int	banner_lenth = (int)strlen(run_env.ftpd_banner) + 8;
 	char	banner_mess[banner_lenth];
 */	

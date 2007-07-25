@@ -222,15 +222,7 @@ int parse_cmd(char *p_buf)
 #ifdef DEBUG
 				printf("call port()\n");
 #endif
-				if(user_env.port_connections < run_env.max_port_connections){
-					do_port(user_cmd.arg);
-					user_env.port_connections++;
-				}else{
-					#ifdef DEBUG
-					printf("user_env.port_connections=%d\n", user_env.port_connections);
-					#endif
-					failed(user_cmd.cmd);
-				}
+				do_port(user_cmd.arg);
 				break;	
 		case 17:
 #ifdef DEBUG

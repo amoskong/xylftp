@@ -1001,9 +1001,24 @@ int do_port(char *arg)
 
 	bzero((char *)&client, sizeof(client)) ;
 	client.sin_port = htons(port);
-	if (inet_pton(AF_INET, addr, &client.sin_addr) == 0) {/*convert decimal address to binary*/
+	if (inet_pton(AF_INET, addr, &client.sin_addr) == 0) {
 		_write_to_socket("501 Incorrect IP address.\r\n");
 		return -1;
+	}
+	if (strcmp(user_env.port_ip, addr) != 0){
+		strcpy(user_env.port_ip, addr);
+		user_env.port_connections = 0;
+	}
+	if (strcmp(user_env.port_ip, user_env.client_ip) != 0){
+		if (user_env.port_connections >= run_env.max_port_connections){
+			_write_to_socket("421 Failed to create data connection.\r\n");
+			return -1;
+		} else {
+			user_env.port_connections++;
+		#ifdef DEBUG
+			printf("user_env.port_connections=%d\n", user_env.port_connections);
+		#endif
+		}
 	}
 	client.sin_family = AF_INET;
 	if ((_ignore_sigpipe() == -1) || ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)) {
@@ -1030,12 +1045,12 @@ int do_port(char *arg)
 static int _ignore_sigpipe(void)
 {
 	struct sigaction act;
-	if (sigaction(SIGPIPE,(struct sigaction *)NULL, &act) == -1) {
+	if (sigaction(SIGPIPE, (struct sigaction *)NULL, &act) == -1) {
 		return -1;
 	}
 	if (act.sa_handler == SIG_DFL) {
 		act.sa_handler = SIG_IGN;
-		if (sigaction(SIGPIPE,&act, (struct sigaction *)NULL) == -1) {
+		if (sigaction(SIGPIPE, &act, (struct sigaction *)NULL) == -1) {
 			return -1;	
 		}
 	}
@@ -1057,7 +1072,7 @@ static int _analysis_ipaddr(char *str, char **re_addr, int *re_port)
 		i++;
 	} 
 	m = port[0]*256 + port[1];
-	if(m > 65535) {
+	if(m < 0) {
 		return -1;	
 	}
 	snprintf(addr, 16, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);

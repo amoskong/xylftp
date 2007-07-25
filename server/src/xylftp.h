@@ -93,6 +93,7 @@ struct user_env{
 	unsigned int user_id;			/*登录的用户ID*/
 	unsigned int client_data_port;		/*客户端数据连接使用端口*/
 	char client_ip[16];			/*客户端ip*/
+	char port_ip[16];			/*port命令使用的ip*/
 	unsigned short client_port;		/*客户所使用的端口号*/
 	unsigned long login_time;		/*登录时间*/
 	unsigned long last_operation_time;	/*上次操作时间*/
@@ -102,7 +103,7 @@ struct user_env{
 	bool ascii_on;				/*是否为ascii码模式*/
 	int connect_fd;				/*控制连接*/
 	int data_fd;				/*数据连接*/
-	unsigned int port_connections;
+	unsigned int port_connections;		/*对其它主机使用port命令的次数*/
 	unsigned int upload_files;
 	unsigned int upload_kbytes;
 	unsigned int download_files;

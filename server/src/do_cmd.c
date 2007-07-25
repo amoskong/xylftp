@@ -21,6 +21,7 @@
 
 #define _GNU_SOURCE
 #include "xylftp.h"
+#include <wordexp.h>
 #ifndef MAX_PATH
 #define MAX_PATH 4096
 #endif
@@ -370,6 +371,8 @@ int do_stat(const char *cmd_arg)
 int do_list(char *filename)
 {
 	int m_width[4]={3,10,10,10};
+	int ret = 0;
+	size_t i;
 	char each_dir_inf[BUF_LEN] = {0};
 	char buf[BUF_LEN] = {0};
 	const char finished[] = "226 Transfer complete.\r\n";
@@ -380,52 +383,74 @@ int do_list(char *filename)
 	struct stat file_inf;
 	char user_path[PATH_NAME_LEN] ={""};
 	char inte_dir_inf[BUF_LEN]={0};
+	char **w;
+	wordexp_t wxp;
 
 	write(user_env.connect_fd, success, strlen(success));
 	if(filename[0]!='/')	{
-		snprintf(buf, BUF_LEN, "%s/%s", user_env.current_path, filename);
+		if (strcmp(user_env.current_path, "/") != 0) {
+			snprintf(buf, BUF_LEN, "%s/%s", user_env.current_path, filename);
+		} else {
+			snprintf(buf, BUF_LEN, "%s%s", user_env.current_path, filename);
+		}
 	}
 	else {
 		snprintf(buf, BUF_LEN, "%s", filename);
 	}
-	if (stat(filename, &file_inf) == 0){
-		if (!S_ISDIR(file_inf.st_mode)) {
-			snprintf(inte_dir_inf, BUF_LEN, "%s %s\r\n",
-					_get_line_info(&file_inf, each_dir_inf,
-						m_width), filename);
-			write(user_env.data_fd, inte_dir_inf,
-				strlen(inte_dir_inf));
-			write(user_env.connect_fd, finished, strlen(finished));
-			close(user_env.data_fd); 
-			return 0;
-		}
-	}
 #ifdef DEBUG
-	printf("Get here with %s\n", buf);
+	printf("buf=%s\n", buf);
 #endif
-	if((dir_inf_str = opendir(buf)) != NULL){
-		while((dirp = readdir(dir_inf_str)) != NULL){
-			memset(each_dir_inf, 0, BUF_LEN);
-			memset(inte_dir_inf, 0, BUF_LEN);
-			snprintf(user_path, PATH_NAME_LEN, "%s/%s", buf, dirp->d_name);
-			if(stat(user_path, &file_inf) != -1){
+	wordexp(buf, &wxp, 0);
+	w = wxp.we_wordv;
+	for (i=0; i < wxp.we_wordc; i++){
+		if (stat(w[i], &file_inf) == 0) {
+			if (!S_ISDIR(file_inf.st_mode)
+				|| (wxp.we_wordc!=1 || strcmp(w[0], buf) != 0)) {
 				snprintf(inte_dir_inf, BUF_LEN, "%s %s\r\n",
-					_get_line_info(&file_inf, each_dir_inf,
-						m_width), dirp->d_name);
+					_get_line_info(&file_inf, each_dir_inf, m_width),
+					w[i]);
 				write(user_env.data_fd, inte_dir_inf,
-				strlen(inte_dir_inf));
+					strlen(inte_dir_inf));
+				continue;
 			}
+		} else {
+#ifdef DEBUG
+			printf("w[i]=%s\n", w[i]);
+#endif
+			ret = -1;
+			break;
 		}
+#ifdef DEBUG
+		printf("Get here with %s\n", w[i]);
+#endif
+		if((dir_inf_str = opendir(w[i])) != NULL){
+			while((dirp = readdir(dir_inf_str)) != NULL){
+				memset(each_dir_inf, 0, BUF_LEN);
+				memset(inte_dir_inf, 0, BUF_LEN);
+				snprintf(user_path, PATH_NAME_LEN, "%s/%s", w[i], dirp->d_name);
+				if(stat(user_path, &file_inf) != -1){
+					snprintf(inte_dir_inf, BUF_LEN, "%s %s\r\n",
+						_get_line_info(&file_inf, each_dir_inf, m_width),
+						dirp->d_name);
+					write(user_env.data_fd, inte_dir_inf,
+						strlen(inte_dir_inf));
+				}
+			}
+		} else {
+			ret = -1;
+			break;
+		}
+		closedir(dir_inf_str);
+	}/*for*/
+
+	if (ret == 0) {
 		write(user_env.connect_fd, finished, strlen(finished));
-		close(user_env.data_fd);
-	} 
-	else {
+	} else {
 		write(user_env.connect_fd, fail, strlen(fail));
-		close(user_env.data_fd);
-		return -1;
 	}
-	closedir(dir_inf_str);
-	return 0;
+	close(user_env.data_fd);
+	wordfree(&wxp);
+	return ret;
 }
 
 /* 命令MKD的处理 */

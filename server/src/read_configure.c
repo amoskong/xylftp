@@ -13,7 +13,7 @@
  * 修改日期：2007年6月6日
  */
 #include "xylftp.h"
-#define CONFIG_NUM 15	/*item number of the configue file*/
+#define CONFIG_NUM 16	/*item number of the configue file*/
 static int _read_line(int fd,char *buf);
 static int _analyze_para(char *buf,int *array);
 static int _check_configure(int *array);
@@ -35,7 +35,8 @@ void print(void)
 	printf("run_env.data_connection_timeout = %d \n",run_env.data_connection_timeout);
 	printf("run_env.ftpd_banner = %s\n",run_env.ftpd_banner);
 	printf("run_env.max_clients = %d\n",run_env.max_clients);
-	printf("run_env.max_links = %d\n",run_env.max_links);
+	printf("run_env.max_connections = %d\n",run_env.max_connections);
+	printf("run_env.max_port_connections = %d\n",run_env.max_port_connections);
 	printf("run_env.passive_port = %d,%d\n",run_env.passive_port_min,run_env.passive_port_max);
 	printf("run_env.ftp_dir = %s\n",run_env.ftp_dir);
 	printf("run_env.user_pass_file = %s\n",run_env.user_pass_file);
@@ -112,9 +113,12 @@ static int _analyze_para(char *buf,int *array)
 	} else if (!strncmp(option,"Max_clients",strlen("Max_clients"))) {
 		run_env.max_clients = (unsigned int)(atoi(value));
 		array[8] = 1;
-	} else if (!strncmp(option,"Max_links", strlen("Max_links"))) {
-		run_env.max_links = (unsigned int)(atoi(value));
+	} else if (!strncmp(option,"Max_connections", strlen("Max_connections"))) {
+		run_env.max_connections = (unsigned int)(atoi(value));
 		array[9] = 1;
+	} else if (!strncmp(option,"Max_port_connections",strlen("Max_port_connections"))) {
+		run_env.max_port_connections = (unsigned int)(atoi(value));
+		array[10] = 1;
 	} else if (!strncmp(option,"Passive_port", strlen("Passive_port"))) {
 		if ((tmp = strtok_r(value,",",&saveptr2)) == NULL) {
 			fprintf(stderr,"Error in configure file\n");
@@ -126,35 +130,35 @@ static int _analyze_para(char *buf,int *array)
 			goto ret3;
 		}								/*get the max_port and store it*/
 		run_env.passive_port_max = (unsigned int)(atoi(tmp));
-		array[10] = 1;
+		array[11] = 1;
 	} else if (!strncmp(option,"FTP_dir",strlen("FTP_dir"))) {
 		if ((strlen(value) + 1) > PATH_NAME_LEN) {
 			fprintf(stderr, "Path name is too long!\n");
 			goto ret3;
 		}
       strcpy(run_env.ftp_dir,value);
-		array[11] = 1;
+		array[12] = 1;
 	} else if (!strncmp(option,"User_pass_file",strlen("User_pass_file"))) {
 		if ((run_env.user_pass_file = malloc((strlen(value) + 1) * sizeof (char))) == NULL) {
 			fprintf(stderr,"No enough memory!\n");
 			goto ret;
 		}
                 strcpy(run_env.user_pass_file,value);
-		array[12] = 1;
+		array[13] = 1;
 	} else if (!strncmp(option, "Visible_user_name",strlen("Visible_user_name"))) {
 		if ((strlen(value) + 1) > USER_NAME_LEN) {
 			fprintf(stderr,"Visible_user_name is too long!\n");
 			goto ret;
 		}
 		strcpy(run_env.visible_user_name, value);
-		array[13] = 1;	
+		array[14] = 1;	
 	} else if (!strncmp(option, "Visible_group_name",strlen("Visible_group_name"))) {
 		if ((strlen(value) + 1) > USER_NAME_LEN) {
 			fprintf(stderr,"Visible_group_name is too long!\n");
 			goto ret;
 		}
 		strcpy(run_env.visible_group_name, value);
-		array[14] = 1;	
+		array[15] = 1;	
 	} else {
 		fprintf(stderr,"Parameter can't be analyzed!\n");
 		goto ret;
@@ -294,21 +298,24 @@ static int _check_configure(int *array)
 		fprintf(stderr,"No Max_clients item or error!\n");
 	}
 	if (!array[9]) {
-		fprintf(stderr,"No Max_links item or error!\n");
+		fprintf(stderr,"No Max_connections item or error!\n");
 	}
 	if (!array[10]) {
-		fprintf(stderr,"No Passive_port item or error!\n");
+		fprintf(stderr,"No Max_port_connections item or error!\n");
 	}
 	if (!array[11]) {
-		fprintf(stderr,"No FTP_dir item or error!\n");
+		fprintf(stderr,"No Passive_port item or error!\n");
 	}
 	if (!array[12]) {
-		fprintf(stderr,"No User_pass_file item or error!\n");
+		fprintf(stderr,"No FTP_dir item or error!\n");
 	}
 	if (!array[13]) {
-		fprintf(stderr, "No Visible_user_name item or error!\n");
+		fprintf(stderr,"No User_pass_file item or error!\n");
 	}
 	if (!array[14]) {
+		fprintf(stderr, "No Visible_user_name item or error!\n");
+	}
+	if (!array[15]) {
 		fprintf(stderr, "No visible_group_name item or error!\n");
 	}
 

@@ -25,9 +25,9 @@
 extern struct user_env user_env;
 extern struct run_env run_env;
 struct parse_cmd{
-	char	cmd[MAX_CMD];
-	char	arg[MAX_ARG];
-} ;
+	char cmd[MAX_CMD];
+	char arg[MAX_ARG];
+};
 
 
 const char *commands[] = {"USER","PASS","SYST","QUIT","RETR","STOR","RNFR","RNTO","ABOR","DELE",
@@ -93,8 +93,9 @@ static int _cmd_num(struct parse_cmd cmd)
 
 int parse_cmd(char *p_buf)
 {	
-	char	rnfr_arg[MAX_ARG];
+	char rnfr_arg[MAX_ARG];
 	struct parse_cmd user_cmd;
+	const char login_error[] = "530 Please login with USER and PASS.\r\n";
 	int i = 0;
 
 	memset(&user_cmd, 0, sizeof(struct parse_cmd));
@@ -131,7 +132,7 @@ int parse_cmd(char *p_buf)
 						break;
 					}
 				} else {
-					const char	*mess = "220 No username input.\r\n";
+					const char mess[] = "220 No username input.\r\n";
 					write(user_env.connect_fd, mess, strlen(mess));
 				}
 
@@ -221,7 +222,15 @@ int parse_cmd(char *p_buf)
 #ifdef DEBUG
 				printf("call port()\n");
 #endif
-				do_port(user_cmd.arg);
+				if(user_env.port_connections < run_env.max_port_connections){
+					do_port(user_cmd.arg);
+					user_env.port_connections++;
+				}else{
+					#ifdef DEBUG
+					printf("user_env.port_connections=%d\n", user_env.port_connections);
+					#endif
+					failed(user_cmd.cmd);
+				}
 				break;	
 		case 17:
 #ifdef DEBUG
@@ -274,8 +283,7 @@ int parse_cmd(char *p_buf)
 				break;
 		}		
 	} else if (i <= 23 && i >= 1) {
-		write(user_env.connect_fd, "530 Please login with USER and PASS.\r\n",
-			strlen("530 Please login with USER and PASS.\r\n"));
+		write(user_env.connect_fd, login_error, strlen(login_error));
 	} else {
 		failed(user_cmd.cmd);
 	}

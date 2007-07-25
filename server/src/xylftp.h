@@ -75,9 +75,10 @@ struct run_env{
 	unsigned int data_connection_timeout;		/*数据链接的最大空闲时间，超时断开链接*/
 	char *ftpd_banner;				/*登录欢迎信息*/
 	unsigned int max_clients;			/*允许的最大客户数目*/
-	unsigned int max_links;				/*允许的最大链接数目*/
+	unsigned int max_connections;				/*允许的最大链接数目*/
 	unsigned int passive_port_max;			/*被动模式下监听的端口范围*/
 	unsigned int passive_port_min;
+	unsigned int max_port_connections;
 	char ftp_dir[PATH_NAME_LEN];			/*FTP根目录位置*/
 	char *user_pass_file;				/*用户数据文件目录*/
 	char visible_user_name[USER_NAME_LEN];		/*用户所看到的文件所有者*/
@@ -101,6 +102,7 @@ struct user_env{
 	bool ascii_on;				/*是否为ascii码模式*/
 	int connect_fd;				/*控制连接*/
 	int data_fd;				/*数据连接*/
+	unsigned int port_connections;
 	unsigned int upload_files;
 	unsigned int upload_kbytes;
 	unsigned int download_files;

@@ -18,6 +18,7 @@
 
 #include "xylftp.h"
 #include "do_cmd.h"
+#include "debug.h"
 
 #define MAX_CMD 5
 #define MAX_ARG 4096
@@ -138,139 +139,94 @@ int parse_cmd(char *p_buf)
 
 				break;
 		case 3:
-#ifdef DEBUG
-				printf("call syst()\n");
-#endif
+				debug_printf("call syst()\n");
 				do_syst();
 				break;
 		case 4:
-#ifdef DEBUG
-				printf("call quit()\n");
-#endif
+				debug_printf("call quit()\n");
 				do_quit();
 				break;	
 		case 5:
-#ifdef DEBUG
-				printf("call retr()\n");
-#endif
+				debug_printf("call retr()\n");
 				do_retr(user_cmd.arg);
 				break;
 		case 6:
-#ifdef DEBUG
-				printf("call stor()\n");
-#endif
+				debug_printf("call stor()\n");
 				do_stor(user_cmd.arg);
 				break;
 		case 7:
-#ifdef DEBUG
-				printf("call rnfr()\n");
-#endif
+				debug_printf("call rnfr()\n");
 				do_rnfr();
 				strcpy(rnfr_arg, user_cmd.arg);
 				break;
 		case 8:
-#ifdef DEBUG
-				printf("call rnto()\n");
-#endif
+				debug_printf("call rnto()\n");
 				do_rnto(rnfr_arg, user_cmd.arg);
 				memset(rnfr_arg, 0, MAX_ARG);
 				break;
 		case 9:
-#ifdef DEBUG
-				printf("call abor()\n");
+				debug_printf("call abor()\n");
 				fflush(stdout);
-#endif
 				do_abor(user_cmd.arg);
 				break;
 		case 10:
-#ifdef DEBUG
-				printf("call dele()\n");
-#endif
+				debug_printf("call dele()\n");
 				do_dele(user_cmd.arg);
 				break;
 		case 11:
-#ifdef DEBUG
-				printf("call rmd()\n");
-#endif
+				debug_printf("call rmd()\n");
 				do_rmd(user_cmd.arg);
 				break;
 		case 12:
-#ifdef DEBUG
-				printf("call mkd()\n");
-#endif
+				debug_printf("call mkd()\n");
 				do_mkd(user_cmd.arg);
 				break;
 		case 13:
-#ifdef DEBUG
-				printf("call pwd()\n");
-#endif
+				debug_printf("call pwd()\n");
 				do_pwd();
 				break;
 		case 14:
-#ifdef DEBUG
-				printf("call cwd()\n");
-#endif
+				debug_printf("call cwd()\n");
 				do_cwd(user_cmd.arg);
 				break;
 		case 15:
-#ifdef DEBUG
-				printf("call cdup()\n");
-#endif
+				debug_printf("call cdup()\n");
 				do_cdup();
 				break;
 		case 16:
-#ifdef DEBUG
-				printf("call port()\n");
-#endif
+				debug_printf("call port()\n");
 				do_port(user_cmd.arg);
 				break;	
 		case 17:
-#ifdef DEBUG
-				printf("call noop()\n");
-#endif
+				debug_printf("call noop()\n");
 				do_noop();	
 				break;
 		case 18:
-#ifdef DEBUG
-				printf("call pasv()\n");
-				printf("\n");
-#endif
+				debug_printf("call pasv()\n\n");
 				do_pasv();
 				break;
 		case 19:
-#ifdef DEBUG
-				printf("call type()\n");
-#endif
+				debug_printf("call type()\n");
 				do_type(user_cmd.arg);
 				break;
 		case 20:
-#ifdef DEBUG
-				printf("call mode()\n");
-#endif
+				debug_printf("call mode()\n");
 				do_mode(user_cmd.arg);
 				break;
 		case 21:
-#ifdef DEBUG
-				printf("call stat()\n");
-#endif
+				debug_printf("call stat()\n");
 				do_stat(user_cmd.arg);
 				break;
 		case 22:
-#ifdef DEBUG
-				printf("call stru()\n");
-#endif
+				debug_printf("call stru()\n");
 				do_stru(user_cmd.arg);
 				break;
 		case 23:
-#ifdef DEBUG
-				printf("call list()\n");
-#endif
+				debug_printf("call list()\n");
 				do_list(user_cmd.arg);
 				break;
 		default:
-#ifdef DEBUG
-				printf("call failed()\n");
-#endif
+				debug_printf("call failed()\n");
 				failed(user_cmd.cmd);
 				break;
 		}		

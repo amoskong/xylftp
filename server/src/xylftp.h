@@ -57,7 +57,13 @@ typedef unsigned int bool;
 #define LISTENQ 128
 #define MAX_ADDR 256
 #define _BUFFER_LENGTH 150
+
+#ifdef DEBUG
+#define CONFIG_FILE "../doc/xylftp.conf"
+#else
 #define CONFIG_FILE "/etc/xylftp/xylftp.conf"
+#endif
+
 #define PATH_NAME_LEN 1024
 #define USER_NAME_LEN 32
 #define MAX_MSG_LEN 256

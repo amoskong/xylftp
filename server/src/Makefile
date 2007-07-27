@@ -13,7 +13,7 @@ all: xylftp
 xylftp: xylftp.o read_configure.o write_log.o xylsocket.o telnet.o parse_cmd.o do_cmd.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -O2 -o $@ $^
 
-xylftp.o: xylftp.c 
+xylftp.o: xylftp.c xylftp.h
 	$(CC) $(CFLAGS) -O2 -c -o $@ $^
 
 read_configure.o: read_configure.c
@@ -31,14 +31,14 @@ telnet.o: telnet.c
 parse_cmd.o: parse_cmd.c
 	$(CC) $(CFLAGS) -O2 -c -o $@ $^
 
-do_cmd.o: do_cmd.c
+do_cmd.o: do_cmd.c do_cmd.h
 	$(CC) $(CFLAGS) -O2 -c -o $@ $^
 
 clean:
 	rm -f *.o xylftp xylftp.debug
 
 debug: xylftp.debug
-xylftp.debug: xylftp.c read_configure.c write_log.c xylsocket.c telnet.c parse_cmd.c do_cmd.c
+xylftp.debug: xylftp.h xylftp.c read_configure.c write_log.c xylsocket.c telnet.c parse_cmd.c do_cmd.h do_cmd.c debug.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG -ggdb -o $@ $^
 
 install: all

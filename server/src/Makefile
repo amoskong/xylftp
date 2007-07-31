@@ -11,7 +11,7 @@ LDFLAGS= -lssl
 all: xylftp
 
 xylftp: xylftp.o read_configure.o write_log.o xylsocket.o telnet.o parse_cmd.o do_cmd.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -O2 -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) -O2 -Os -o $@ $^
 
 xylftp.o: xylftp.c
 	$(CC) $(CFLAGS) -O2 -c -o $@ $^

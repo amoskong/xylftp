@@ -21,6 +21,7 @@
 
 #define _GNU_SOURCE
 #include "xylftp.h"
+#include "debug.h"
 #include <wordexp.h>
 #ifndef MAX_PATH
 #define MAX_PATH 4096
@@ -61,17 +62,13 @@ int do_user(char username[])
 
 	if (username[0] == '\0') {
 		write(user_env.connect_fd, noname, strlen(noname));
-		#ifdef DEBUG
-		printf(noname);
-		#endif
+		debug_printf("%s\n", noname);
 		return -1;
 	}	
 
 	if (user_env.login_in == TRUE) {
 		write(user_env.connect_fd, logged, strlen(logged));
-		#ifdef DEBUG
-		printf(logged);
-		#endif
+		debug_printf("%s\n", logged);
 		return -1;
 	}
 
@@ -79,25 +76,17 @@ int do_user(char username[])
 		if(run_env.anonymous_enable){
 			strcpy(user_env.user_name, username);	
 			write(user_env.connect_fd, inf_buf, strlen(inf_buf));
-		#ifdef DEBUG
-		printf(inf_buf);
-		#endif
-		}
-		else {
+			debug_printf("%s\n", inf_buf);
+		} else {
 			write(user_env.connect_fd, no_anonymous, strlen(no_anonymous));
-		#ifdef DEBUG
-		printf(no_anonymous);
-		#endif
+			debug_printf("%s\n", no_anonymous);
 		}			
 	}
-
 	/*anonymous client authentication*/
 	else {
 		strcpy(user_env.user_name, username);		
 		write(user_env.connect_fd, inf_buf, strlen(inf_buf));
-		#ifdef DEBUG
-		printf(inf_buf);
-		#endif
+		debug_printf("%s\n", inf_buf);
 	}
 
 	return 0;
@@ -397,9 +386,9 @@ int do_list(char *filename)
 	else {
 		snprintf(buf, BUF_LEN, "%s", filename);
 	}
-#ifdef DEBUG
-	printf("buf=%s\n", buf);
-#endif
+
+	debug_printf("buf=%s\n", buf);
+
 	wordexp(buf, &wxp, 0);
 	w = wxp.we_wordv;
 	for (i=0; i < wxp.we_wordc; i++){
@@ -414,15 +403,15 @@ int do_list(char *filename)
 				continue;
 			}
 		} else {
-#ifdef DEBUG
-			printf("w[i]=%s\n", w[i]);
-#endif
+
+			debug_printf("w[i]=%s\n", w[i]);
+
 			ret = -1;
 			break;
 		}
-#ifdef DEBUG
-		printf("Get here with %s\n", w[i]);
-#endif
+
+		debug_printf("Get here with %s\n", w[i]);
+
 		if((dir_inf_str = opendir(w[i])) != NULL){
 			while((dirp = readdir(dir_inf_str)) != NULL){
 				memset(each_dir_inf, 0, BUF_LEN);
@@ -459,45 +448,40 @@ int do_mkd(const char *path)           /*处理命令MKD的入口*/
 	char str[PATH_NAME_LEN] = {""};
 	if (user_env.enable_upload == 1) {                  /*判断权限*/
 		if (path[0] == '/') {                   /*参数是路径名?*/
-                	path=strcat(str,path);
-             	}
-		else {                                 /*参数是目录名?*/
+                	path = strcat(str, path);
+		} else {		/*参数是目录名?*/
 			strcpy(str, user_env.current_path);                
-			if(str[strlen(str)-1] != '/') strcat(str, "/");
-                	path=strcat(str, path);
+			if(str[strlen(str)-1] != '/')
+				strcat(str, "/");
+				path = strcat(str, path);
 		}
 		if(_stat_mkd(path) == 0) {
 			return 0;
-        	}
-        	else {
+		} else {
         		return -1;
 		}
- 	}
-	else {
-            _stat_error_421();
-            return -1;
-        }
-     }
+ 	} else {
+		_stat_error_421();
+		return -1;
+	}
+}
 
 static int _stat_mkd(const char *path)
 {     
 	char buf[50+PATH_NAME_LEN] = {};
-#ifdef DEBUG
-	printf("mkd: path=%s \r\n", path);
-#endif
+
+	debug_printf("mkd: path=%s \r\n", path);
 	if (mkdir(path, S_IRWXU) == 0) {              /*创建目录成功*/
 		snprintf(buf, 50+PATH_NAME_LEN, "257 Directory successfully created:%s.\r\n", path);
 		write(user_env.connect_fd,buf,strlen(buf)+1);
 		return 0;
-	}
-	else {
+	} else {
 		if(errno == EEXIST){
 			_stat_error1_501();
         	} 
 		else if (errno == ENAMETOOLONG) {
 			_stat_error2_501();
-		} 
-    		else {
+		} else {
 			_stat_fail_450();
 		}
 		return -1;
@@ -512,46 +496,40 @@ int do_rmd(const char *path)                /*处理命令RMD的入口*/
 	char str[PATH_NAME_LEN]={""};
 	if (user_env.enable_upload == 1) {	/*判断权限*/
 		if (path[0] == '/') {	/*参数是路径名?*/
-			path=strcat(str,path);
+			path = strcat(str, path);
 		}
 		else {	/*参数是目录名?*/
 			strcpy(str, user_env.current_path);
 			if(str[strlen(str)-1] != '/') {
 				strcat(str, "/");
 			}
-			path=strcat(str,path);
+			path = strcat(str,path);
 		}
 		if(_stat_rmd(path) == 0) {
 			return 0;
-		}
-		else {
+		} else {
 			return -1;
 		}
-	}
-        else {
-            _stat_error_421();
-            return(-1);
+	} else {
+		_stat_error_421();
+		return -1;
 	}
 }
 
 static int _stat_rmd(const char *path)
 {
 	const char buf[] = "250 RMD command successful.\r\n";
-#ifdef DEBUG
-	printf("rmdir at %s \r\n", path);
-#endif
+
+	debug_printf("rmdir at %s \r\n", path);
 	if (rmdir(path) == 0) {	/*删除目录成功*/
 		write(user_env.connect_fd, buf, strlen(buf));
 		return 0;
-        }
-	else {
+	} else {
 		if(errno == ENOENT) {
 			_stat_error3_501();
-		} 
-		else if (errno == ENAMETOOLONG) {
+		} else if (errno == ENAMETOOLONG) {
 			_stat_error2_501();
-		} 
-		else {
+		} else {
 			_stat_fail_450();
 		}
 		return -1;
@@ -567,22 +545,19 @@ int do_dele(const char *path)          /*处理命令DELE的入口*/
 	if (user_env.enable_upload == 1) {    /*判断权限*/
 		if (path[0] == '/') {         /*参数是路径名?*/
 			path = strcat(str, path);
-		}
-		else{       /*参数是目录名?*/
+		} else {       /*参数是目录名?*/
 			strcpy(str, user_env.current_path);
 			if(str[strlen(str)-1] != '/') {
 				strcat(str, "/");
 			}
-			path=strcat(str,path);
+			path = strcat(str,path);
 		}
 		if(_stat_dele(path) == 0) {
 			return 0;
-		}
-		else {
+		} else {
 			return -1;
 		}
-	}
-	else {
+	} else {
 		_stat_fail_550();
 		return -1;
 	}
@@ -591,21 +566,17 @@ int do_dele(const char *path)          /*处理命令DELE的入口*/
 int _stat_dele(const char *path)
 {
 	const char buf[] = "250 File sucessfully deleted.\r\n";
-#ifdef DEBUG
-	printf("dele at %s \r\n",path);
-#endif
+
+	debug_printf("dele at %s \r\n",path);
 	if(unlink(path) == 0) {	/*删除文件成功*/
 		write(user_env.connect_fd, buf, strlen(buf));
 		return 0;
-	}
-	else {
+	} else {
 		if(errno == ENOENT) {
 			_stat_error3_501();
-		}
-		else if(errno == ENAMETOOLONG) {
+		} else if (errno == ENAMETOOLONG) {
 			_stat_error2_501();
-		}
-		else { 
+		} else { 
 			_stat_fail_450();
 		}
 		return -1;
@@ -620,9 +591,8 @@ static int _stat_retr(const char *path)
 	int fd;
 	ssize_t i = 0;
 	char buf[BUF_LEN]={""};      
-#ifdef DEBUG
-	printf("retr from %s\n",path);
-#endif
+
+	debug_printf("retr from %s\n",path);
 	fd = open(path, O_RDONLY);
 	if(fd != -1) {
 		_stat_success_150();
@@ -631,8 +601,7 @@ static int _stat_retr(const char *path)
 				close(user_env.data_fd);
 				_stat_fail_501();
 				return -1;
-			}
-			else {
+			} else {
 				write(user_env.data_fd, buf, i);
 				user_env.download_kbytes += i/1000;
 			}
@@ -737,8 +706,7 @@ int do_mode(const char *arg)
 	if ((strlen(arg) == 1) && ((*arg == 's') || (*arg == 'S'))) {
 		write(user_env.connect_fd, succ, strlen(succ));
 		return 0;
-	}
-	else {
+	} else {
 		write(user_env.connect_fd, fail, strlen(fail));
 		return 1;
 	}

@@ -107,16 +107,13 @@ int parse_cmd(char *p_buf)
 	if (( i = _cmd_num(user_cmd)) <= 4 || user_env.login_in == TRUE) {
 		switch (i) {
 		case 1:
-#ifdef DEBUG
-				printf("****call user()\n");
-#endif
+				debug_printf("****call user()\n");
 				do_user(user_cmd.arg);
 				break;
 		case 2:
-#ifdef DEBUG
-				printf("call pass()\n");
+				debug_printf("call pass()\n");
 				printf("username=%s\n", user_env.user_name);
-#endif
+
 				if (strlen(user_env.user_name) != 0) { 
 					if (do_pass(user_cmd.arg) == 0) {
 						if (chroot(run_env.ftp_dir) < 0) {

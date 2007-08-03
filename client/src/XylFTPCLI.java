@@ -50,6 +50,16 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 	private final String DefaultPass = "xylftpuser@xylftp";
 
 	/**
+	 *Commands list.
+	 */
+	private String[] commands = {"help", "?", "ls", "lls",
+	"dir", "get", "put", "cwd", "cd", "lcwd", "lcd", "pwd",
+	"lpwd", "passive", "cdup", "lcdup", "quit", "bye",
+	"open", "close", "user", "!!", "delete", "rmdir",
+	"mkdir", "chmod", "size", "rename", "type", "status",
+	"quote", "verbose", "debug"};
+
+	/**
 	 *Initializes some values.
 	 */
 	XylFTPCLI(){
@@ -120,7 +130,35 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 		nstr = Str.split("[\t ]+");
 		return nstr.length;
 	}
-	
+
+	/**
+	 *Look up the commands list, recognize which command matches.
+	 *@return the index of the command, -1 on failure.
+	 */
+	private int LookupCommands(String input) throws Exception{
+		int i = 0;
+		for (; i< commands.length; i++) {
+			if (StartsOnlyWith(input, commands[i]))
+				return i;
+		}
+		//If not found, try again for incomplete input.
+		boolean found_one = false;
+		int tmp = -1;
+		for (i = 0; i< commands.length; i++) {
+			if (commands[i].startsWith(input.toLowerCase())) {
+				if (found_one) {
+					return -1;
+				} else {
+					found_one = true;
+					tmp = i;
+				}
+			}
+		}
+		if (found_one)
+			return tmp;
+		else
+			return -1;
+	}
 	/**
 	 *Judges the command.
 	 *@param CmdString the command of the user input  
@@ -156,7 +194,10 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 		String tmp = Input.trim();
 		if (tmp.equals(""))
 			return null;
-		if (StartsOnlyWith(tmp, "help") || StartsOnlyWith(tmp, "?")) {
+		switch (LookupCommands(tmp)) {
+		case 0:
+		case 1:
+		{
 			switch (CountArgs(tmp)){
 			case 1:
 				ShowHelp("");
@@ -169,7 +210,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				throw new XylFTPException("help", "Too many arguments.");
 			}
 			return null;
-		} else if (StartsOnlyWith(tmp, "ls")) {
+		}
+		case 2:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("ls", "Can't execute it now. Try again later.");
 			switch (CountArgs(tmp)){
@@ -191,7 +234,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				else
 					return "PORT "+GetSelfIP()+GetSelfPort()+"\r\nLIST "+substr+"\r\n";
 			}
-		} else if (StartsOnlyWith(tmp, "lls")) {
+		}
+		case 3:
+		{
 			switch (CountArgs(tmp)){
 			case 1:
 				String[] list = CurrentDir.list();
@@ -220,7 +265,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				}
 			}
 			return null;
-		} else if (StartsOnlyWith(tmp, "dir")) {
+		}
+		case 4:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("dir", "Can't execute it now. Try again later.");
 			switch (CountArgs(tmp)){
@@ -242,7 +289,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				else
 					return "PORT "+GetSelfIP()+GetSelfPort()+"\r\nNLST "+substr+"\r\n";
 			}
-		} else if (StartsOnlyWith(tmp, "get")) {
+		}
+		case 5:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("get", "You can't excute it now. Try again later.");
 			switch (CountArgs(tmp)){
@@ -289,7 +338,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("get", "Too many arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "put")) {
+		}
+		case 6:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("put", "You can't excute it now. Try again later.");
 			switch (CountArgs(tmp)){
@@ -328,7 +379,10 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("put", "Too many arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "cwd") || StartsOnlyWith(tmp, "cd")) {
+		}
+		case 7:
+		case 8:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("cd", "You can't execute it now. Try again later.");
 			switch (CountArgs(tmp)){
@@ -340,7 +394,10 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("cd", "Too many arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "lcwd") || StartsOnlyWith(tmp, "lcd")) {
+		}
+		case 9:
+		case 10:
+		{
 			switch (CountArgs(tmp)){
 			case 1:
 				break;
@@ -379,7 +436,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				throw new XylFTPException("cd", "Too many arguments.");
 			}
 			return null;
-		} else if (StartsOnlyWith(tmp, "pwd")) {
+		}
+		case 11:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("pwd", "You can't execute it now. Try again later.");
 			switch (CountArgs(tmp)){
@@ -388,7 +447,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("pwd", "It doesn't accept any arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "lpwd")) {
+		}
+		case 12:
+		{
 			switch (CountArgs(tmp)){
 			case 1:
 				System.out.println(CurrentDir.getCanonicalPath());
@@ -397,7 +458,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				throw new XylFTPException("lpwd", "It doesn't accept any arguments.");
 			}
 			return null;
-		} else if (StartsOnlyWith(tmp, "passive")) {
+		}
+		case 13:
+		{
 			switch (CountArgs(tmp)){
 			case 2:
 				String []cmds = tmp.split("[\t ]+");
@@ -419,7 +482,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				throw new XylFTPException("passive", "Too many arguments.");
 			}
 			return null;
-		} else if (StartsOnlyWith(tmp, "cdup")) {
+		}
+		case 14:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("cdup",
 					"Can't execute it now. Try again later.");
@@ -430,7 +495,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				throw new XylFTPException("cdup",
 					"It doesn't accept any arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "lcdup")) {
+		}
+		case 15:
+		{
 			switch (CountArgs(tmp)){
 			case 1:
 				String parent = CurrentDir.getAbsoluteFile().getParent();
@@ -446,7 +513,10 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 					"It doesn't accept any arguments.");
 			}
 			return null;
-		} else if (StartsOnlyWith(tmp, "quit") || StartsOnlyWith(tmp, "bye")){
+		}
+		case 16:
+		case 17:
+		{
 			if (CountArgs(tmp) > 1) {
 				throw new XylFTPException("quit",
 					"It doesn't accept any arguments.");
@@ -463,7 +533,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("Unknown status!");
 			}
-		} else if (StartsOnlyWith(tmp, "open")){
+		}
+		case 18:
+		{
 			int n = CountArgs(tmp);
 			if (n < 2){
 				throw new XylFTPException("open",
@@ -514,7 +586,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("panic", "Unknown status!");
 			}
-		} else if (StartsOnlyWith(tmp, "close")) {
+		}
+		case 19:
+		{
 			if (CountArgs(tmp) > 1){
 				throw new XylFTPException("close", "Too many arguments.");
 			}
@@ -530,7 +604,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("Unknown status!");
 			}
-		} else if (StartsOnlyWith(tmp, "user")){
+		}
+		case 20:
+		{
 			switch (GetStatus()){
 			case 0:
 				String [] cmds = tmp.split("[\t ]+");
@@ -576,7 +652,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("panic", "Unknown status!");
 			}
-		} else if (StartsOnlyWith(tmp, "!!")){
+		}
+		case 21:
+		{
 			if (CountArgs(tmp) > 1) {
 				throw new XylFTPException("!!", "It doesn't accept any arguments.");
 			} else {
@@ -597,7 +675,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				System.out.println("=====Exit shell mode=====");
 				return null;
 			}
-		} else if (StartsOnlyWith(tmp, "delete")) {
+		}
+		case 22:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("delete",
 						"Can't execute it now. Try again later.");
@@ -610,7 +690,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("delete", "Too many arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "rmdir")) {
+		}
+		case 23:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("rmdir",
 						"Can't execute it now. Try again later.");
@@ -623,7 +705,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("rmdir", "Too many arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "mkdir")) {
+		}
+		case 24:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("mkdir",
 						"Can't execute it now. Try again later.");
@@ -636,7 +720,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("mkdir", "Too many arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "chmod")) {
+		}
+		case 25:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("chmod",
 						"Can't execute it now. Try again later.");
@@ -650,7 +736,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("chmod", "Too many arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "size")) {
+		}
+		case 26:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("size",
 						"Can't execute it now. Try again later.");
@@ -663,7 +751,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 			default:
 				throw new XylFTPException("size", "Too many arguments.");
 			}
-		} else if (StartsOnlyWith(tmp, "rename")) {
+		}
+		case 27:
+		{
 			if (GetStatus()!=2)
 				throw new XylFTPException("rename",
 						"Can't execute it now. Try again later.");
@@ -678,7 +768,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				throw new XylFTPException("rename", "Too many arguments.");
 			}
 
-		} else if (StartsOnlyWith(tmp, "type")){
+		}
+		case 28:
+		{
 			switch (CountArgs(tmp)){
 			case 1:
 				if(GetTransferMode()==0)
@@ -698,7 +790,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				throw new XylFTPException("type", "Too many arguments.");
 			}
 			
-		} else if (StartsOnlyWith(tmp, "status")){ 
+		}
+		case 29:
+		{ 
 			switch (GetStatus()){
 			case 0: 
 				System.out.println("Not connected.");
@@ -744,7 +838,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				System.out.println("Debug: off");
 
 			return null;
-		} else if (StartsOnlyWith(tmp, "quote")) {
+		}
+		case 30:
+		{
 			String in, echo;
 			int ret;
 			if (GetStatus()==0)
@@ -769,7 +865,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				ret = ProcessEcho(echo);
 			} while(ret == 6);
 			return null;
-		} else if (StartsOnlyWith(tmp, "verbose")){
+		}
+		case 31:
+		{
 			switch(CountArgs(tmp)){
 			case 1:
 				if (XylFTPMain.GetEnableVerbose()){
@@ -785,7 +883,9 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				throw new XylFTPException("verbose", "Too many arguments.");
 			}
 			return null;
-		} else if (StartsOnlyWith(tmp,"debug")){
+		}
+		case 32:
+		{
 			switch(CountArgs(tmp)){
 			case 1:
 				if (XylFTPMain.GetEnableDebug()){
@@ -801,7 +901,8 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 				throw new XylFTPException("debug", "Too many arguments.");
 			}
 			return null;
-		} else {
+		}
+		default:
 			throw new XylFTPException("xylftp", GetStatus(), "Unknown command!");
 		}
 	}

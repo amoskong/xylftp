@@ -109,6 +109,7 @@ struct user_env{
 	bool ascii_on;				/*是否为ascii码模式*/
 	int connect_fd;				/*控制连接*/
 	int data_fd;				/*数据连接*/
+	off_t restartat;			/*REST续传位置*/
 	unsigned int port_connections;		/*对其它主机使用port命令的次数*/
 	unsigned int upload_files;
 	unsigned int upload_kbytes;

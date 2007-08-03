@@ -593,12 +593,23 @@ static int _stat_retr(const char *path)
 	char buf[BUF_LEN]={""};      
 
 	debug_printf("retr from %s\n",path);
+
 	fd = open(path, O_RDONLY);
 	if(fd != -1) {
+		if((off_t)-1 == lseek(fd, user_env.restartat, SEEK_SET)){
+			_stat_fail_501();
+			r_close(fd);
+		#ifdef DEBUG
+			perror("lseek");
+		#else
+			write_log("lseek error.", 0);
+		#endif
+			return -errno;
+		}
 		_stat_success_150();
 		while((i = read(fd, buf, BUF_LEN)) != 0) {
 			if (i == -1) {
-				close(user_env.data_fd);
+				r_close(user_env.data_fd);
 				_stat_fail_501();
 				return -1;
 			} else {
@@ -608,11 +619,12 @@ static int _stat_retr(const char *path)
 		}
 		user_env.download_files++;
 		r_close(fd);
-		close(user_env.data_fd); 
+		r_close(user_env.data_fd); 
+		user_env.restartat = 0;
 		_stat_success_226();
 		return 0;
 	} else {
-		close(user_env.data_fd);
+		r_close(user_env.data_fd);
 		_stat_fail_501();
 		return -1;
 	} 
@@ -1170,10 +1182,10 @@ int do_stor(char *arg)
 	ssize_t rsize;
 	char buff[BUF_LEN];
 
-#ifdef DEBUG
-	printf("****STOR; arg = %s\n", arg);
-	printf("user_env.current_path=%s\n", user_env.current_path);
-#endif
+
+	debug_printf("****STOR; arg = %s\n", arg);
+	debug_printf("user_env.current_path=%s\n", user_env.current_path);
+
 	if (!user_env.enable_upload) {
 		write(user_env.connect_fd, "550 Permission denied.\r\n", strlen("550 Permission denied.\r\n"));
 		close(user_env.data_fd);
@@ -1198,9 +1210,9 @@ int do_stor(char *arg)
 			strcat(pathname, "/");
 		strcat(pathname, arg);
 	} 
-#ifdef DEBUG
-	printf("pathname=%s.\n", pathname);
-#endif
+
+	debug_printf("pathname=%s.\n", pathname);
+
 	fd = open(pathname, O_RDWR|O_CREAT);
 	if (fd < 0) {
 		write(user_env.connect_fd, "550 Permission denied.\r\n", 23);
@@ -1212,10 +1224,19 @@ int do_stor(char *arg)
 #endif
 		return -errno;
 	}
-	_stat_success_150();
+	if((off_t)-1 == lseek(fd, user_env.restartat, SEEK_SET)){
+		r_close(fd);
 #ifdef DEBUG
-	printf("%s create OK! \n", pathname);
+		perror("lseek");
+#else
+		write_log("lseek error.", 0);
 #endif
+		return -errno;
+	}
+	_stat_success_150();
+
+	debug_printf("%s create OK! \n", pathname);
+
 	sd = user_env.data_fd;	
 	for(;;){
 		rsize = read(sd, buff, BUF_LEN);
@@ -1235,12 +1256,62 @@ int do_stor(char *arg)
 	}
 	r_close(fd);
 	r_close(sd);
+	user_env.restartat = 0;
 	write(user_env.connect_fd, stor_ok, strlen(stor_ok));
 	user_env.upload_files++;
-#ifdef DEBUG
-	printf("%d files, %d KB.\n", user_env.upload_files, user_env.upload_kbytes);
-#endif
+
+	debug_printf("%d files, %d KB.\n", user_env.upload_files, user_env.upload_kbytes);
+
 	return 0;
+}
+
+int do_rest(const char *arg)
+{
+	char *endptr;
+	const char failed_msg[] = "501 REST needs a numeric parameter\r\n";
+	const char succ_msg[] = "350 Restarting successfully."
+			" Send STORE or RETRIEVE to initiate transfer\r\n";
+	const char restrict_msg[] = "501 REST: Resuming transfers not"
+			" allowed in ASCII mode\r\n";
+	user_env.restartat = (off_t) strtoull(arg, &endptr, 10);
+	if (*endptr != 0 || user_env.restartat < (off_t) 0) {
+		user_env.restartat = 0;
+		write(user_env.connect_fd, failed_msg, strlen(failed_msg));
+		return -1;
+	} else {
+		if (user_env.ascii_on && user_env.restartat != 0) {
+			write(user_env.connect_fd, restrict_msg, strlen(restrict_msg));
+			return 0;
+		} else {
+			write(user_env.connect_fd, succ_msg, strlen(succ_msg));
+			return 0;
+		}
+	}
+}
+
+int do_size(const char *name)
+{
+	const char fail_msg[] = "550 Could not get file size.\r\n";
+	const char fail_msg2[] = "550 I can only retrieve regular files.\r\n";
+	char buf[MAX_MSG_LEN] = {0,};
+	struct stat st;
+
+	if (!*name) {
+		write(user_env.connect_fd, fail_msg, strlen(fail_msg));
+		return -1;
+	} else if (stat(name, &st)) {
+		write(user_env.connect_fd, fail_msg, strlen(fail_msg));
+		write_log("stat failed.", 0);
+		return -errno;
+	} else if (!S_ISREG(st.st_mode)) {
+		write(user_env.connect_fd, fail_msg2, strlen(fail_msg2));
+		return -1;
+	} else {
+		snprintf(buf, MAX_MSG_LEN, "%d %llu\r\n", 213,
+			(unsigned long long)st.st_size);
+		write(user_env.connect_fd, buf, strlen(buf));
+		return 0;
+	}
 }
 
 /*reply the wrong or unsupported command*/

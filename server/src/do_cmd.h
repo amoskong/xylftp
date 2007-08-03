@@ -38,4 +38,6 @@ extern	int failed(const char *);
 extern	int do_retr(const char *);
 extern	int do_mode(const char *);
 extern	int do_stru(char *);
+extern	int do_rest(const char *);
+extern	int do_size(const char *);
 #endif /*end of _DO_CMD_H*/

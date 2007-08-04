@@ -40,4 +40,6 @@ extern	int do_mode(const char *);
 extern	int do_stru(char *);
 extern	int do_rest(const char *);
 extern	int do_size(const char *);
+extern	int do_site(const char *);
+extern	int do_help(const char *);
 #endif /*end of _DO_CMD_H*/

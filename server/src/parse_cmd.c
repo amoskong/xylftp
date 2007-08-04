@@ -33,7 +33,7 @@ struct parse_cmd{
 
 const char *commands[] = {"USER","PASS","SYST","QUIT","RETR","STOR","RNFR","RNTO","ABOR","DELE",
 		"RMD","MKD","PWD","CWD","CDUP","PORT","NOOP","PASV","TYPE","MODE",
-		"STAT","STRU","LIST", "REST", "SIZE"};			/*服务器支持的所有命令*/
+		"STAT","STRU","LIST", "REST", "SIZE", "SITE", "HELP"};			/*服务器支持的所有命令*/
 
 static int _line_cmd(char *line_buf, struct parse_cmd *user_cmd)
 {
@@ -107,12 +107,12 @@ int parse_cmd(char *p_buf)
 	if (( i = _cmd_num(user_cmd)) <= 4 || user_env.login_in == TRUE) {
 		switch (i) {
 		case 1:
-				debug_printf("****call user()\n");
+				debug_printf("****call do_user()\n");
 				do_user(user_cmd.arg);
 				break;
 		case 2:
-				debug_printf("call pass()\n");
-				printf("username=%s\n", user_env.user_name);
+				debug_printf("call do_pass()\n");
+				debug_printf("username=%s\n", user_env.user_name);
 
 				if (strlen(user_env.user_name) != 0) { 
 					if (do_pass(user_cmd.arg) == 0) {
@@ -136,42 +136,42 @@ int parse_cmd(char *p_buf)
 
 				break;
 		case 3:
-				debug_printf("call syst()\n");
+				debug_printf("call do_syst()\n");
 				do_syst();
 				break;
 		case 4:
-				debug_printf("call quit()\n");
+				debug_printf("call do_quit()\n");
 				do_quit();
 				break;	
 		case 5:
-				debug_printf("call retr()\n");
+				debug_printf("call do_retr()\n");
 				do_retr(user_cmd.arg);
 				break;
 		case 6:
-				debug_printf("call stor()\n");
+				debug_printf("call do_stor()\n");
 				do_stor(user_cmd.arg);
 				break;
 		case 7:
-				debug_printf("call rnfr()\n");
+				debug_printf("call do_rnfr()\n");
 				do_rnfr();
 				strcpy(rnfr_arg, user_cmd.arg);
 				break;
 		case 8:
-				debug_printf("call rnto()\n");
+				debug_printf("call do_rnto()\n");
 				do_rnto(rnfr_arg, user_cmd.arg);
 				memset(rnfr_arg, 0, MAX_ARG);
 				break;
 		case 9:
-				debug_printf("call abor()\n");
+				debug_printf("call do_abor()\n");
 				fflush(stdout);
 				do_abor(user_cmd.arg);
 				break;
 		case 10:
-				debug_printf("call dele()\n");
+				debug_printf("call do_dele()\n");
 				do_dele(user_cmd.arg);
 				break;
 		case 11:
-				debug_printf("call rmd()\n");
+				debug_printf("call do_rmd()\n");
 				do_rmd(user_cmd.arg);
 				break;
 		case 12:
@@ -179,56 +179,64 @@ int parse_cmd(char *p_buf)
 				do_mkd(user_cmd.arg);
 				break;
 		case 13:
-				debug_printf("call pwd()\n");
+				debug_printf("call do_pwd()\n");
 				do_pwd();
 				break;
 		case 14:
-				debug_printf("call cwd()\n");
+				debug_printf("call do_cwd()\n");
 				do_cwd(user_cmd.arg);
 				break;
 		case 15:
-				debug_printf("call cdup()\n");
+				debug_printf("call do_cdup()\n");
 				do_cdup();
 				break;
 		case 16:
-				debug_printf("call port()\n");
+				debug_printf("call do_port()\n");
 				do_port(user_cmd.arg);
 				break;	
 		case 17:
-				debug_printf("call noop()\n");
+				debug_printf("call do_noop()\n");
 				do_noop();	
 				break;
 		case 18:
-				debug_printf("call pasv()\n\n");
+				debug_printf("call do_pasv()\n\n");
 				do_pasv();
 				break;
 		case 19:
-				debug_printf("call type()\n");
+				debug_printf("call do_type()\n");
 				do_type(user_cmd.arg);
 				break;
 		case 20:
-				debug_printf("call mode()\n");
+				debug_printf("call do_mode()\n");
 				do_mode(user_cmd.arg);
 				break;
 		case 21:
-				debug_printf("call stat()\n");
+				debug_printf("call do_stat()\n");
 				do_stat(user_cmd.arg);
 				break;
 		case 22:
-				debug_printf("call stru()\n");
+				debug_printf("call do_stru()\n");
 				do_stru(user_cmd.arg);
 				break;
 		case 23:
-				debug_printf("call list()\n");
+				debug_printf("call do_list()\n");
 				do_list(user_cmd.arg);
 				break;
 		case 24:
-				debug_printf("call rest()\n");
+				debug_printf("call do_rest()\n");
 				do_rest(user_cmd.arg);
 				break;
 		case 25:
-				debug_printf("call size()\n");
+				debug_printf("call do_size()\n");
 				do_size(user_cmd.arg);
+				break;
+		case 26:
+				debug_printf("call do_site()\n");
+				do_site(user_cmd.arg);
+				break;
+		case 27:
+				debug_printf("call do_help()\n");
+				do_help(user_cmd.arg);
 				break;
 		default:
 				debug_printf("call failed()\n");

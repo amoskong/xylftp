@@ -20,9 +20,10 @@
  */
 
 #define _GNU_SOURCE
+#include <wordexp.h>
 #include "xylftp.h"
 #include "debug.h"
-#include <wordexp.h>
+
 #ifndef MAX_PATH
 #define MAX_PATH 4096
 #endif
@@ -46,9 +47,8 @@ static int _stat_dele(const char *path);
 static int _stat_retr(const char *);
 static int _ignore_sigpipe(void);
 static int _analysis_ipaddr(char *, char **, int *);
-static int _close_connection(int);
-static int _chdir(char*);
-static int _write_to_socket(char*);
+static int _chdir(const char*);
+static int _response(const char*);
 int do_quit(void);
 int failed(const char *s);
 
@@ -61,13 +61,13 @@ int do_user(char username[])
 	const char logged[] = "503 You have already logged in.\r\n";
 
 	if (username[0] == '\0') {
-		write(user_env.connect_fd, noname, strlen(noname));
+		_response(noname);
 		debug_printf("%s\n", noname);
 		return -1;
 	}	
 
 	if (user_env.login_in == TRUE) {
-		write(user_env.connect_fd, logged, strlen(logged));
+		_response(logged);
 		debug_printf("%s\n", logged);
 		return -1;
 	}
@@ -75,17 +75,17 @@ int do_user(char username[])
 	if (strcmp(username, anonymous) == 0){
 		if(run_env.anonymous_enable){
 			strcpy(user_env.user_name, username);	
-			write(user_env.connect_fd, inf_buf, strlen(inf_buf));
+			_response(inf_buf);
 			debug_printf("%s\n", inf_buf);
 		} else {
-			write(user_env.connect_fd, no_anonymous, strlen(no_anonymous));
+			_response(no_anonymous);
 			debug_printf("%s\n", no_anonymous);
 		}			
 	}
 	/*anonymous client authentication*/
 	else {
 		strcpy(user_env.user_name, username);		
-		write(user_env.connect_fd, inf_buf, strlen(inf_buf));
+		_response(inf_buf);
 		debug_printf("%s\n", inf_buf);
 	}
 
@@ -109,7 +109,7 @@ int do_pass(char *pass)
 	int i, j, pass_len, id;
 
 	if (user_env.login_in == TRUE) {
-		write(user_env.connect_fd, logged, strlen(logged));
+		_response(logged);
 		return -1;
 	}
 
@@ -117,13 +117,13 @@ int do_pass(char *pass)
 		snprintf(mess, 50, "230 User anonymous logged in.\r\n");
 		user_env.login_in = TRUE;
 		user_env.enable_upload = FALSE;
-		write(user_env.connect_fd, mess, strlen(mess));
+		_response(mess);
 		return 0;
 	} 
 
 	if ((fp = fopen(run_env.user_pass_file, "r")) == NULL) {
 		write_log("open user_pass_file error",0);
-		write(user_env.connect_fd, log_error, strlen(log_error));
+		_response(log_error);
 		return -1;
 	}
 
@@ -152,7 +152,7 @@ int do_pass(char *pass)
 
 	if (k == -1) {
 		snprintf(mess, 50, "530 Login incorrect.\r\n");
-		write(user_env.connect_fd, mess, strlen(mess));
+		_response(mess);
 		free(line);
 		return -1;
 	}
@@ -184,11 +184,11 @@ int do_pass(char *pass)
 	if (!memcmp(password, md, 16) ) { 
 			snprintf(mess, 50, "230 User %s logged in.\r\n", user_env.user_name);
 			user_env.login_in = TRUE;
-			write(user_env.connect_fd, mess, strlen(mess));
+			_response(mess);
 			return 0;
 	} else {
 		snprintf(mess, 50, "530 Login incorrect.\r\n");
-		write(user_env.connect_fd, mess, strlen(mess));
+		_response(mess);
 		return -1;
 	}
 
@@ -264,7 +264,7 @@ static int _stat_no_arg(void)
 			user_env.upload_kbytes, user_env.download_files, user_env.download_kbytes) == -1) {
 		write_log("The message is overflow.",0);
 	}
-	return write(user_env.connect_fd, msg, strlen(msg));
+	return _response(msg);
 }
 
 static int _stat_with_arg(const char *cmd_arg)
@@ -291,7 +291,7 @@ static int _stat_with_arg(const char *cmd_arg)
 	strcpy(full_path, buf); /*the length of buf won't greater than the full_path so it's safe.*/
 
 	if (!(target_dir = opendir(buf))) {
-		write(user_env.connect_fd, not_found, strlen(not_found));
+		_response(not_found);
 		return closedir(target_dir);
 	}
 
@@ -318,7 +318,7 @@ static int _stat_with_arg(const char *cmd_arg)
 		write_log("Path string overflows.",0);
 	}
 
-	write(user_env.connect_fd, buf, strlen(buf));
+	_response(buf);
 
 	while ((direntp = readdir(target_dir)) != NULL) {
 		if (*(direntp->d_name) == '.') {
@@ -337,13 +337,13 @@ static int _stat_with_arg(const char *cmd_arg)
 				direntp->d_name) == -1) {
 			write_log("Path string overflows.", 0);
 		}
-		write(user_env.connect_fd, buf, strlen(buf));
+		_response(buf);
 	}
 
 	if (snprintf(buf, MAX_PATH, "211 End of Status.\r\n") == -1) {
 		write_log("Path string overflows.", 0);
 	}
-	write(user_env.connect_fd, buf, strlen(buf));
+	_response(buf);
 	return closedir(target_dir);
 }
 
@@ -375,7 +375,7 @@ int do_list(char *filename)
 	char **w;
 	wordexp_t wxp;
 
-	write(user_env.connect_fd, success, strlen(success));
+	_response(success);
 	if(filename[0]!='/')	{
 		if (strcmp(user_env.current_path, "/") != 0) {
 			snprintf(buf, BUF_LEN, "%s/%s", user_env.current_path, filename);
@@ -433,9 +433,9 @@ int do_list(char *filename)
 	}/*for*/
 
 	if (ret == 0) {
-		write(user_env.connect_fd, finished, strlen(finished));
+		_response(finished);
 	} else {
-		write(user_env.connect_fd, fail, strlen(fail));
+		_response(fail);
 	}
 	close(user_env.data_fd);
 	wordfree(&wxp);
@@ -473,7 +473,7 @@ static int _stat_mkd(const char *path)
 	debug_printf("mkd: path=%s \r\n", path);
 	if (mkdir(path, S_IRWXU) == 0) {              /*创建目录成功*/
 		snprintf(buf, 50+PATH_NAME_LEN, "257 Directory successfully created:%s.\r\n", path);
-		write(user_env.connect_fd,buf,strlen(buf)+1);
+		_response(buf);
 		return 0;
 	} else {
 		if(errno == EEXIST){
@@ -522,7 +522,7 @@ static int _stat_rmd(const char *path)
 
 	debug_printf("rmdir at %s \r\n", path);
 	if (rmdir(path) == 0) {	/*删除目录成功*/
-		write(user_env.connect_fd, buf, strlen(buf));
+		_response(buf);
 		return 0;
 	} else {
 		if(errno == ENOENT) {
@@ -565,11 +565,11 @@ int do_dele(const char *path)          /*处理命令DELE的入口*/
 
 int _stat_dele(const char *path)
 {
-	const char buf[] = "250 File sucessfully deleted.\r\n";
+	const char msg[] = "250 File sucessfully deleted.\r\n";
 
 	debug_printf("dele at %s \r\n",path);
 	if(unlink(path) == 0) {	/*删除文件成功*/
-		write(user_env.connect_fd, buf, strlen(buf));
+		_response(msg);
 		return 0;
 	} else {
 		if(errno == ENOENT) {
@@ -599,11 +599,7 @@ static int _stat_retr(const char *path)
 		if((off_t)-1 == lseek(fd, user_env.restartat, SEEK_SET)){
 			_stat_fail_501();
 			r_close(fd);
-		#ifdef DEBUG
-			perror("lseek");
-		#else
-			write_log("lseek error.", 0);
-		#endif
+			LOG_IT("lseek error.");
 			return -errno;
 		}
 		_stat_success_150();
@@ -652,63 +648,63 @@ int do_retr(const char *path)
 /*命令执行失败*/
 static void _stat_fail_450(void)
 {
-	const char buf[] = "450 File operation failed.\r\n";
-	write(user_env.connect_fd, buf, strlen(buf));
+	const char msg[] = "450 File operation failed.\r\n";
+	_response(msg);
 }
 
 /*出现错误*/
 static void _stat_error_421(void)
 {
-	const char buf[] = "421 Service not available, closing control connection.\r\n";
-	write(user_env.connect_fd, buf, strlen(buf));
+	const char msg[] = "421 Service not available, closing control connection.\r\n";
+	_response(msg);
 	do_quit();
 }
 
 /*命令执行失败*/
 static void _stat_fail_550(void)
 {
-	const char buf[] = "550 Requested action not taken. File unavailable.\r\n";
-	write(user_env.connect_fd, buf, strlen(buf));
+	const char msg[] = "550 Requested action not taken. File unavailable.\r\n";
+	_response(msg);
 }
 
 /*出现错误*/
 static void _stat_error1_501(void)
 {
-	const char buf[] = "501 Wrong arguments, the filename exists.\r\n";
-	write(user_env.connect_fd, buf, strlen(buf));
+	const char msg[] = "501 Wrong arguments, the filename exists.\r\n";
+	_response(msg);
 }
 
 static void _stat_error2_501(void)
 {
-	const char buf[] =
+	const char msg[] =
 		"501 Diretory or file name is too long.\r\n";
-	write(user_env.connect_fd, buf, strlen(buf));
+	_response(msg);
 }
 
 static void _stat_error3_501(void)
 {
-	const char buf[] =
+	const char msg[] =
 		"501 Arguments wrong,the file or directory does not exists!\r\n";
-	write(user_env.connect_fd, buf, strlen(buf));
+	_response(msg);
 }
 
 static void _stat_success_150(void)
 { 
-	const char buf[] = "150 File status okay; about to open data connection.\r\n";
-	write(user_env.connect_fd, buf, strlen(buf));
+	const char msg[] = "150 File status okay; about to open data connection.\r\n";
+	_response(msg);
 }
 
 static void _stat_success_226(void)
 { 
-	const char buf[] = "226 Closing data connection."
+	const char msg[] = "226 Closing data connection."
              "Requested file-action succeed.\r\n";
-	write(user_env.connect_fd, buf, strlen(buf));
+	_response(msg);
 }
  
 static void _stat_fail_501(void)
 {
-	const char buf[] = "501 Syntax error in parameters or arguments.\r\n";
-	write(user_env.connect_fd, buf, strlen(buf));
+	const char msg[] = "501 Syntax error in parameters or arguments.\r\n";
+	_response(msg);
 }
 
 int do_mode(const char *arg)
@@ -716,10 +712,10 @@ int do_mode(const char *arg)
 	const char succ[] = "200 MODE S OK.\r\n";
 	const char fail[] = "504 Command not implemented for that parameter.\r\n";
 	if ((strlen(arg) == 1) && ((*arg == 's') || (*arg == 'S'))) {
-		write(user_env.connect_fd, succ, strlen(succ));
+		_response(succ);
 		return 0;
 	} else {
-		write(user_env.connect_fd, fail, strlen(fail));
+		_response(fail);
 		return 1;
 	}
 }
@@ -750,7 +746,7 @@ int do_pasv(void)
 {
 	char ip_addr[16] = {0};  /*I think 16 is just enough.*/
 	char port_buf[64] = {0};
-	/*const char *pasv_ready = "125 Data connection already open; transfer starting.\r\n";*/
+
 	const char pasv_fail[] = "425 Can't open data connection.\r\n";
 	int sock, ret;
 	int data_port; 
@@ -773,11 +769,7 @@ int do_pasv(void)
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if(sock < 0) {
-#ifdef DEBUG
-		perror("socket");
-#else
-		write_log("socket failed!", 0);
-#endif
+		LOG_IT("socket error in do_pasv().");
 		return -errno;
 	} 
 	_get_local_ip_address(sock, ip_addr);
@@ -785,19 +777,15 @@ int do_pasv(void)
   	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
 	if (bind(sock, (struct sockaddr *)&data, i) != 0) {
-#ifdef DEBUG
-		perror("bind");
-#else
-		write_log("Can't bind!", 0);
-#endif
+		LOG_IT("bind error in do_pasv().");
 		return -errno;
 	}
 
 	getsockname(sock, (struct sockaddr *)&data, (socklen_t*) &i); 
-#ifdef DEBUG
-	printf("pasv: ip=%s\n",  ip_addr);
-	printf("pasv: port=%d\n", ntohs(data.sin_port));
-#endif
+
+	debug_printf("pasv: ip=%s\n",  ip_addr);
+	debug_printf("pasv: port=%d\n", ntohs(data.sin_port));
+
 	port = ntohs(data.sin_port);
 	port1 = port / 256;
 	port2 = port % 256;
@@ -807,26 +795,23 @@ int do_pasv(void)
 	}
 
 	if(listen(sock, 1) != 0){
-#ifdef DEBUG
-		perror("listen");
-#else
-		write_log("Can't listen!", 0);
-#endif
+		LOG_IT("listen error in do_pasv().");
 		return -errno;
 	}
 
-	snprintf(port_buf, 64, "227  Entering Passive Mode (%s,%d,%d).\r\n", ip_addr, port1, port2);
-	write(user_env.connect_fd, port_buf, strlen(port_buf));
+	snprintf(port_buf, 64, "227  Entering Passive Mode (%s,%d,%d).\r\n",
+		ip_addr, port1, port2);
+	_response(port_buf);
 
 	ret = accept(sock, (struct sockaddr *)&cliaddr, &i);
-	if(ret!=-1){
+	if (ret!=-1) {
 		user_env.data_fd = ret;
 		//write(user_env.connect_fd, pasv_ready, strlen(pasv_ready));
 		close(sock);		
 		return 0;				
-	} 
-	else{
-		write(user_env.connect_fd, pasv_fail, strlen(pasv_fail));
+	} else {
+		LOG_IT("accept error in do_pasv().");
+		_response(pasv_fail);
 		close(sock);		
 		return -errno;
 	}
@@ -836,12 +821,9 @@ int do_syst(void)
 {
 	const char wel[] = "215 UNIX Type: L8\r\n";
 	
-	if ((write(user_env.connect_fd, wel, strlen(wel))) == -1) {
-	#ifdef DEBUG		
-		perror("wirte error");
-	#else
-		write_log("write error in do_syst()", 0);
-	#endif
+	if (_response(wel) == -1) {
+		LOG_IT("write error in do_syst()");
+		return -1;
 	}
 	return 0;	
 }
@@ -849,12 +831,9 @@ int do_syst(void)
 int do_noop(void)
 {
 	const char mess[] = "200 NOOP command successful.\r\n";
-	if ((write(user_env.connect_fd, mess, strlen(mess))) == -1) {
-	#ifdef DEBUG		
-		perror("wirte error");
-	#else
-		write_log("write error in do_noop()", 0);
-	#endif
+	if (_response(mess) == -1) {
+		LOG_IT("write error in do_noop()");
+		return -1;
 	}
 	return 0;
 }
@@ -863,12 +842,12 @@ int do_type(char *arg)
 {
 	if (strcasecmp(arg, "I") == 0) {
 		user_env.ascii_on = FALSE;
-		write(user_env.connect_fd, "200 Type set to I.\r\n", 20);
+		_response("200 Type set to I.\r\n");
 	} else if (strcasecmp(arg, "A") == 0) {
 		user_env.ascii_on = TRUE;
-		write(user_env.connect_fd, "200 Type set to A.\r\n", 20);
+		_response("200 Type set to A.\r\n");
 	} else {
-		write(user_env.connect_fd, "500 Type not understood.\r\n", 26);	
+		_response("500 Type not understood.\r\n");	
 		return -1;
 	}
 
@@ -883,15 +862,15 @@ int do_stru(char *arg)
 	const char unknown[] = "501 Unrecognized structure type.\r\n";
 
 	if (strcmp(arg, "") == 0) {
-		write(user_env.connect_fd, fail, strlen(fail));
+		_response(fail);
 		return -1;
 	} else if(strcasecmp(arg, "F") == 0) {
-		write(user_env.connect_fd, succ, strlen(succ));
+		_response(succ);
 	} else if (strcasecmp(arg, "P") == 0
 				|| strcasecmp(arg, "R") == 0) {
-		write(user_env.connect_fd, unsupported, strlen(unsupported));
+		_response(unsupported);
 	} else {
-		write(user_env.connect_fd, unknown, strlen(unknown));	
+		_response(unknown);
 	}
 
 	return 0;
@@ -908,34 +887,31 @@ int do_abor(char *arg)
 	const char succ[] = "226 Abort successful.\r\n";
 
 	if (strcmp(arg, "") != 0) {
-		write(user_env.connect_fd, fail, strlen(fail));
+		_response(fail);
 		return -1;
 	} else {
-		write(user_env.connect_fd, succ, strlen(succ));	
+		_response(succ);	
 	}
 
 	return 0;
 }
 
-int do_cwd (char *dir)
+int do_cwd(const char *dir)
 {
 	if (_chdir(dir) < 0) {
 		return -1;
-	}
-	else {
-		_write_to_socket("250 Command ok.\r\n");
+	} else {
+		_response("250 Command ok.\r\n");
 		return 0;
 	}
 }
-
 
 int do_cdup(void)
 {
 	if (_chdir("..") < 0) {
 		return -1;
-	}
-	else {
-		_write_to_socket("250 CDUP Command ok.\r\n");
+	} else {
+		_response("250 CDUP Command ok.\r\n");
 		return 0;
 	}
 }
@@ -944,29 +920,27 @@ int do_pwd(void)
 {
 	char mess[PATH_NAME_LEN+6] = {0};
 	snprintf(mess, 4096, "257 \"%s\"\r\n", user_env.current_path);
-	_write_to_socket(mess);
+	_response(mess);
 	return 0;
 }
 
 int do_rnfr(void)
 {
-	if (_write_to_socket("350 Please send the RNTO command.\r\n") < 0) {
+	if (_response("350 Please send the RNTO command.\r\n") < 0) {
 		return -1;
-	}
-	else {
+	} else {
 		return 0;
 	}
 }
 
 int do_rnto(const char *old_path, const char *new_path)
 {
-	char *mess;
-#ifdef DEBUG
-	printf("%s,%s\n", old_path, new_path);
-#endif
+	const char *mess;
+
+	debug_printf("%s,%s\n", old_path, new_path);
+
 	if (user_env.enable_upload != 1) {
-		write(user_env.connect_fd, "550 Permission denied!\r\n",
-			strlen("550 Permission denied!\r\n"));
+		_response("550 Permission denied!\r\n");
 		return -1;
 	}
 
@@ -981,10 +955,10 @@ int do_rnto(const char *old_path, const char *new_path)
 		default:
 			mess = "501 Can't rename this file.\r\n";
 		}
-		_write_to_socket(mess) ;
+		_response(mess) ;
 		return -1;
 	}
-	_write_to_socket("250 Command succeed.\r\n") ;
+	_response("250 Command succeed.\r\n") ;
 	return 0;
 }
 
@@ -1000,14 +974,13 @@ int do_port(char *arg)
 	if (_analysis_ipaddr(arg, &addr, &port) < 0) {
 		return -1;
 	}
-#ifdef DEBUG
-	printf("addr=%s, port=%d\n", addr, port);
-#endif
+
+	debug_printf("addr=%s, port=%d\n", addr, port);
 
 	bzero((char *)&client, sizeof(client)) ;
 	client.sin_port = htons(port);
 	if (inet_pton(AF_INET, addr, &client.sin_addr) == 0) {
-		_write_to_socket("501 Incorrect IP address.\r\n");
+		_response("501 Incorrect IP address.\r\n");
 		return -1;
 	}
 	if (strcmp(user_env.port_ip, addr) != 0){
@@ -1016,18 +989,18 @@ int do_port(char *arg)
 	}
 	if (strcmp(user_env.port_ip, user_env.client_ip) != 0){
 		if (user_env.port_connections >= run_env.max_port_connections){
-			_write_to_socket("421 Failed to create data connection.\r\n");
+			_response("421 Failed to create data connection.\r\n");
 			return -1;
 		} else {
 			user_env.port_connections++;
-		#ifdef DEBUG
-			printf("user_env.port_connections=%d\n", user_env.port_connections);
-		#endif
+
+			debug_printf("user_env.port_connections=%d\n", user_env.port_connections);
+
 		}
 	}
 	client.sin_family = AF_INET;
 	if ((_ignore_sigpipe() == -1) || ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)) {
-		_write_to_socket("421 Failed to create data connection.\r\n");
+		_response("421 Failed to create data connection.\r\n");
 		return -1;
 	}
 	if (((retval = connect(sock, (struct sockaddr *)&client, sizeof(client))) == -1)
@@ -1039,10 +1012,10 @@ int do_port(char *arg)
 		while ((close(sock) == -1) && (errno == EINTR))
 			/*do nothing*/;
 		errno = error;
-		_write_to_socket("421 Failed to create data connection.\r\n");
+		_response("421 Failed to create data connection.\r\n");
 		return -1;
 	}
-	_write_to_socket("200 Succeed to create data connection.\r\n");
+	_response("200 Succeed to create data connection.\r\n");
 	user_env.data_fd = sock;
 	return 0;
 }
@@ -1069,7 +1042,7 @@ static int _analysis_ipaddr(char *str, char **re_addr, int *re_port)
 	int port[2];
 	int m;
 	int i = 0;
-	sscanf(str, "%d,%d,%d,%d,%d,%d", &ip[0],  &ip[1], &ip[2], &ip[3], &port[0], &port[1]);
+	sscanf(str, "%d,%d,%d,%d,%d,%d", &ip[0], &ip[1], &ip[2], &ip[3], &port[0], &port[1]);
 	while(i < 4) {
 		if((ip[i] > 255) || (ip[i] < 0)) {
 			return -1;
@@ -1086,37 +1059,24 @@ static int _analysis_ipaddr(char *str, char **re_addr, int *re_port)
 	return 0;
 }
 
-static int _write_to_socket (char *buf)
+#define RESPONSE(msg)	write(user_env.connect_fd, msg, strlen(msg))
+
+static int _response(const char *buf)
 { 
-	int byteswrite;
-	int nbyte = strlen(buf);
-	while (((byteswrite = write(user_env.connect_fd, buf, nbyte)) == -1) && (errno == EINTR));
+	ssize_t byteswrite;
+
+	while (((byteswrite = RESPONSE(buf)) == -1)
+		&& (errno == EINTR))
+		/*do nothing here*/;
 	if (byteswrite < 0) { /*If cannot write to socket,close all connections and kill the process*/
-		_close_connection(user_env.connect_fd);
+		r_close(user_env.connect_fd);
 		   /*？是否要关闭数据连接？*/
-		write_log("remote host computer did not responsed.", 1);
+		write_log("remote host did not responsed.", 1);
 	}
-	return byteswrite;
+	return (int)byteswrite;
 }
 
-static int _close_connection(int fd) 
-{
-	int i;
-	if (fd < 0) {
-		return 0;    /*there is not the file descriptor*/
-	}
-	while ((i = close(fd)) < 0 && (errno == EINTR)) {
-		/*do nothing*/;
-	}
-	if (i < 0) {
-		return -1;
-	}
-	else {
-		return 0;
-	}
-}
-
-static int _chdir(char *cdir)
+static int _chdir(const char *cdir)
 {
 	char *buffer = NULL;
 	int size = 128;
@@ -1131,23 +1091,21 @@ static int _chdir(char *cdir)
 	}
 
 	if ((chdir(cdir)) < 0) {
-		#ifdef DEBUG
-		perror("chdir");
-		#endif
-		_write_to_socket("501 Can't change directory.\r\n");
+		LOG_IT("chdir error in _chdir().");
+		_response("501 Can't change directory.\r\n");
 		return -1;	 	
 	}
 	/*检查是否合法,即是否超过跟目录*/
 	if ((buffer = malloc(size)) == NULL) {
-		_write_to_socket("550 Can't change directory.\r\n");
-		write_log("malloc failed", 0);
+		_response("550 Can't change directory.\r\n");
+		LOG_IT("malloc failed");
 		return -1;
 	}
 	while ((getcwd(buffer, size) == NULL) && (errno == ERANGE)){
 		size *= 2;
 		if((buffer = realloc(buffer, size)) == NULL){
-			_write_to_socket("550 Can't change directory.\r\n");
-			write_log("realloc failed", 0);
+			_response("550 Can't change directory.\r\n");
+			LOG_IT("realloc failed");
 			return -1;
 		}
 	}
@@ -1162,11 +1120,7 @@ int do_quit(void)
 	const char wel[] = "221 Goodbye.\r\n";
 
 	while ((write(user_env.connect_fd, wel, strlen(wel))) == -1) {
-#ifdef DEBUG
-		perror("wirte error");
-#else
-		write_log("wirte error", 0);
-#endif
+		LOG_IT("write error in do_quit().");
 	}
 	close(user_env.connect_fd);
 	free_sources();
@@ -1187,7 +1141,7 @@ int do_stor(char *arg)
 	debug_printf("user_env.current_path=%s\n", user_env.current_path);
 
 	if (!user_env.enable_upload) {
-		write(user_env.connect_fd, "550 Permission denied.\r\n", strlen("550 Permission denied.\r\n"));
+		_response("550 Permission denied.\r\n");
 		close(user_env.data_fd);
 		write_log("Attempt to write.", 1);
 		return -1;
@@ -1215,22 +1169,14 @@ int do_stor(char *arg)
 
 	fd = open(pathname, O_RDWR|O_CREAT);
 	if (fd < 0) {
-		write(user_env.connect_fd, "550 Permission denied.\r\n", 23);
+		_response("550 Permission denied.\r\n");
 		close(user_env.data_fd);
-#ifdef DEBUG
-		perror("open");
-#else
-		write_log("Open error.", 0);
-#endif
+		LOG_IT("Open error in do_stor().");
 		return -errno;
 	}
 	if((off_t)-1 == lseek(fd, user_env.restartat, SEEK_SET)){
 		r_close(fd);
-#ifdef DEBUG
-		perror("lseek");
-#else
-		write_log("lseek error.", 0);
-#endif
+		LOG_IT("lseek error in do_stor().");
 		return -errno;
 	}
 	_stat_success_150();
@@ -1244,11 +1190,7 @@ int do_stor(char *arg)
 			break;
 		}
 		if (rsize < 0) {
-		#ifdef DEBUG
-			perror("read");
-		#else
-			write_log("Read socket error.", 0);
-		#endif
+			LOG_IT("Read socket error in do_stor().");
 			break;
 		}
 		write(fd, buff, rsize);
@@ -1257,7 +1199,7 @@ int do_stor(char *arg)
 	r_close(fd);
 	r_close(sd);
 	user_env.restartat = 0;
-	write(user_env.connect_fd, stor_ok, strlen(stor_ok));
+	_response(stor_ok);
 	user_env.upload_files++;
 
 	debug_printf("%d files, %d KB.\n", user_env.upload_files, user_env.upload_kbytes);
@@ -1273,17 +1215,18 @@ int do_rest(const char *arg)
 			" Send STORE or RETRIEVE to initiate transfer\r\n";
 	const char restrict_msg[] = "501 REST: Resuming transfers not"
 			" allowed in ASCII mode\r\n";
+
 	user_env.restartat = (off_t) strtoull(arg, &endptr, 10);
 	if (*endptr != 0 || user_env.restartat < (off_t) 0) {
 		user_env.restartat = 0;
-		write(user_env.connect_fd, failed_msg, strlen(failed_msg));
+		_response(failed_msg);
 		return -1;
 	} else {
 		if (user_env.ascii_on && user_env.restartat != 0) {
-			write(user_env.connect_fd, restrict_msg, strlen(restrict_msg));
+			_response(restrict_msg);
 			return 0;
 		} else {
-			write(user_env.connect_fd, succ_msg, strlen(succ_msg));
+			_response(succ_msg);
 			return 0;
 		}
 	}
@@ -1297,33 +1240,102 @@ int do_size(const char *name)
 	struct stat st;
 
 	if (!*name) {
-		write(user_env.connect_fd, fail_msg, strlen(fail_msg));
+		_response(fail_msg);
 		return -1;
 	} else if (stat(name, &st)) {
-		write(user_env.connect_fd, fail_msg, strlen(fail_msg));
+		_response(fail_msg);
 		write_log("stat failed.", 0);
 		return -errno;
 	} else if (!S_ISREG(st.st_mode)) {
-		write(user_env.connect_fd, fail_msg2, strlen(fail_msg2));
+		_response(fail_msg2);
 		return -1;
 	} else {
 		snprintf(buf, MAX_MSG_LEN, "%d %llu\r\n", 213,
 			(unsigned long long)st.st_size);
-		write(user_env.connect_fd, buf, strlen(buf));
+		_response(buf);
 		return 0;
 	}
 }
 
-/*reply the wrong or unsupported command*/
+int do_site(const char *args)
+{
+	const char ok_msg[] = "200 Command okay.\r\n";
+	const char bad_msg[] = "550 Bad file.\r\n";
+	const char fail_msg[] = "550 Can't chmod.\r\n";
+	const char no_msg[] = "502 Command not implemented.\r\n";
+
+	if(!strncasecmp("CHMOD ", args, 6)) {
+		mode_t mode;
+		const char *filename;
+		char buf[256] = {0,};
+
+		if (!user_env.enable_upload) {
+			_response("550 Permission denied.\r\n");
+			LOG_IT("Attempt to write.");
+			return -3;
+		}
+		args += 5;
+		mode = strtol(args, (char**)&args, 8);
+		while(*args && isspace(*args))
+			args++;
+		filename = args;
+
+		debug_printf("mode=%d, filename=%s\n", mode, args);
+
+		if(!getcwd(buf, 128) ||
+		   strlen(buf) + strlen(filename) + 1 > 256) {
+			_response(bad_msg);
+			return -1;
+		}
+
+		strcat(buf, "/");
+		strcat(buf, filename);
+		if (-1 == chmod(filename, mode)) {
+			_response(fail_msg);
+			LOG_IT("chmod failed");
+			return -errno;
+		}
+		_response(ok_msg);
+		return 0;
+	} else {
+		_response(no_msg);
+		return -2;
+	}
+}
+
+int do_help(const char *args)
+{
+	const char help[] = "214-The following commands are implemented.\r\n"
+			"214-USER    QUIT    PASS    SYST    HELP    PORT    PASV    LIST\r\n"
+			"214-NLST    RETR    STOR    TYPE    MKD     RMD     DELE    PWD\r\n"
+			"214-CWD     SITE    CDUP    RNFR    RNTO    NOOP\r\n"
+			"214 End of list.\r\n";
+	const char helpsite[] = "214-The following SITE commands are implemented.\r\n"
+			"214-CHMOD   HELP\r\n"
+			"214 End of list.\r\n";
+	const char nohelp[] = "214 There is no help for that command.\r\n";
+
+	if (!strlen(args)) {
+		_response(help);
+	} else if (!strcasecmp(args, "SITE")) {
+		_response(helpsite);
+	} else {
+		_response(nohelp);
+	}
+	return 0;
+}
+
+/*reply to wrong or unsupported commands*/
 int failed(const char *s)
 {
 	char msg500[MAX_PATH] = {0};
 	int m_len;
+
 	if ((m_len = snprintf(msg500, MAX_PATH, 
 			"500 \'%s\' command is not supported.\r\n", s)) >= MAX_PATH || m_len == -1) {
 		write_log("Too long command got.", 0);
 		return -1;
 	}
-	write(user_env.connect_fd, msg500, strlen(msg500));
+	_response(msg500);
 	return 0;
 }

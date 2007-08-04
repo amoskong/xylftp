@@ -40,6 +40,7 @@
 #include <net/if_arp.h>
 #include <sys/ioctl.h>
 #include <ctype.h>
+#include <strings.h>
 
 int  read_configure(void);
 int  write_log(char *message,int level);

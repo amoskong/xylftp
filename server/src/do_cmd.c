@@ -11,7 +11,7 @@
  * 修 改 者：刘洋 林峰 王聪 聂海海
  * 修改日期：2007年6月16日
  * 取代版本：1.0
- * 摘    要：原来增加的命令很符合要求，重建此文件。全部根据要求，现将命令单独在test目录中通过的逐条加入。
+ * 摘    要：原来增加的命令不很符合要求，重建此文件。全部根据要求，现将命令单独在test目录中通过的逐条加入。
  * 今天仅加入STAT。
  *14日加入USER。
  *6.15: 修正英文语法错误，排版错误。
@@ -40,6 +40,7 @@ static void _stat_fail_550(void);
 static void _stat_success_150(void);
 static void _stat_success_226(void);
 static void _stat_fail_501(void);
+static void _path_tail(char *, char *);
 static int _get_local_ip_address(int sock, char* ip_addr);
 static int _stat_mkd(const char *path);    
 static int _stat_rmd(const char *path);    
@@ -1095,7 +1096,7 @@ static int _chdir(const char *cdir)
 		_response("501 Can't change directory.\r\n");
 		return -1;	 	
 	}
-	/*检查是否合法,即是否超过跟目录*/
+	/*检查是否合法,即是否超过根目录*/
 	if ((buffer = malloc(size)) == NULL) {
 		_response("550 Can't change directory.\r\n");
 		LOG_IT("malloc failed");
@@ -1308,7 +1309,7 @@ int do_help(const char *args)
 	const char help[] = "214-The following commands are implemented.\r\n"
 			"214-USER    QUIT    PASS    SYST    HELP    PORT    PASV    LIST\r\n"
 			"214-NLST    RETR    STOR    TYPE    MKD     RMD     DELE    PWD\r\n"
-			"214-CWD     SITE    CDUP    RNFR    RNTO    NOOP\r\n"
+			"214-CWD     SITE    CDUP    RNFR    RNTO    NOOP    NLST\r\n"
 			"214 End of list.\r\n";
 	const char helpsite[] = "214-The following SITE commands are implemented.\r\n"
 			"214-CHMOD   HELP\r\n"
@@ -1339,3 +1340,95 @@ int failed(const char *s)
 	_response(msg500);
 	return 0;
 }
+/*implement of NLST*/
+int do_nlst(const char *path)
+{
+	int i = 0;
+	const char finish[] = "226 Transfer complete.\r\n";
+	const char success[] = "150 Opening ASCII mode data connection for file list.\r\n";
+	const char fail[] = "450 No such file or directory.\r\n";
+	struct stat stat_buf;
+	DIR *target_dir;
+	struct dirent *direntp;
+	char buf[BUF_LEN] = {0};
+	char **words;
+	wordexp_t wxp;
+
+	if(path[0]!='/')	{
+		if ((user_env.current_path[strlen(user_env.current_path) - 1]) == '/') {
+			snprintf(buf, BUF_LEN, "%s%s", user_env.current_path, path);
+		} else {
+			snprintf(buf, BUF_LEN, "%s/%s", user_env.current_path, path);
+		}
+	}
+	else {
+		snprintf(buf, BUF_LEN, "%s", path);
+	}
+
+	debug_printf("buf=\'%s\'\n", buf);
+
+	wordexp(buf, &wxp, 0);
+	words = wxp.we_wordv;
+
+	if (wxp.we_wordc < 1) {
+		_response(fail);
+		goto end;	
+	}
+
+	_response(success);
+
+	if (wxp.we_wordc == 1) {
+		if (stat(words[0], &stat_buf) == -1) {
+			_response(fail);
+			goto end;
+		}
+		else {
+			if (S_ISDIR(stat_buf.st_mode)) {
+				_path_tail(buf, words[0]);
+				if((target_dir = opendir(buf)) == NULL) {
+					goto end;
+				}
+				while ((direntp = readdir(target_dir)) != NULL && direntp->d_name[0] != '.') {
+					write(user_env.data_fd, direntp->d_name, strlen(direntp->d_name));
+					write(user_env.data_fd, "\n", 1);
+				}
+				goto suc;
+			}
+		}
+	}
+
+	for (i = 0; i < (int)wxp.we_wordc; i++) {
+		if (words[i][0] != '.') {
+			write(user_env.data_fd, words[i], strlen(words[i]));
+			write(user_env.data_fd, "\n", 1);
+		}
+	}
+	
+suc:	_response(finish);
+
+end:	close(user_env.data_fd);
+	wordfree(&wxp);
+	return 0;
+}
+
+static void _path_tail(char *buf, char *name)
+{
+	int flag = 1;
+	int i = 0;
+
+	if ((strlen(buf) + strlen(name)) >= BUF_LEN) {
+		flag = 0;
+	}
+
+	for (i = strlen(buf); i >= 0; i--) {
+		if (buf[i] == '/') {
+			buf[i] = '\0';
+			break;
+		}
+	}
+
+	if (flag) {
+		strcat(buf, name);   /*It's safe*/
+	}
+}
+/*end of implement NLST*/

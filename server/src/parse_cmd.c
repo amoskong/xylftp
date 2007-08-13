@@ -33,7 +33,7 @@ struct parse_cmd{
 
 const char *commands[] = {"USER","PASS","SYST","QUIT","RETR","STOR","RNFR","RNTO","ABOR","DELE",
 		"RMD","MKD","PWD","CWD","CDUP","PORT","NOOP","PASV","TYPE","MODE",
-		"STAT","STRU","LIST", "REST", "SIZE", "SITE", "HELP"};			/*服务器支持的所有命令*/
+		"STAT","STRU","LIST", "REST", "SIZE", "SITE", "HELP", "NLST"};			/*服务器支持的所有命令*/
 
 static int _line_cmd(char *line_buf, struct parse_cmd *user_cmd)
 {
@@ -237,6 +237,10 @@ int parse_cmd(char *p_buf)
 		case 27:
 				debug_printf("call do_help()\n");
 				do_help(user_cmd.arg);
+				break;
+		case 28:
+				debug_printf("call do_nlst()\n");
+				do_nlst(user_cmd.arg);
 				break;
 		default:
 				debug_printf("call failed()\n");

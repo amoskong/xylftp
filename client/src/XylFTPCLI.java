@@ -192,9 +192,15 @@ public class XylFTPCLI extends XylFTPConnection implements XylFTPInterface{
 	 */
 	private String ParseInput(String Input) throws Exception{
 		String tmp = Input.trim();
+		int which = 0;
 		if (tmp.equals(""))
 			return null;
-		switch (LookupCommands(tmp)) {
+		String tmps[] = tmp.split("[\t ]+");
+		if (tmps!=null)
+			which = LookupCommands(tmps[0]);
+		else
+			which = LookupCommands(tmp);
+		switch (which) {
 		case 0:
 		case 1:
 		{

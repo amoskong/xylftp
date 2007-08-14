@@ -32,3 +32,31 @@ debug:  XylFTPGUI.java XylFTPConnection.java XylFTPInterface.java XylFTPExceptio
 clean:
 	rm -f ./*.class ./*.jar
 	rm -f ./xylftp ./tmp.sh
+
+jar:	xylftp.jar
+xylftp.jar:	all
+	jar cfm $@ manifest.mf *.class
+	echo -n "" > ./xylftp
+	echo "#!/bin/sh" >> ./xylftp
+	echo "# Copyright (C) Xi You Linux Group." >> ./xylftp
+	echo "# GPLv2 applies." >> ./xylftp
+	echo "java -jar ./xylftp.jar $$""@" >> ./xylftp
+	echo "" >> ./xylftp
+	chmod +x xylftp
+
+install: xylftp.jar
+	mkdir -p $(INSTALLDIR)
+	mv ./xylftp.jar $(INSTALLDIR)
+	cp ../doc/User_Manual_Client.pdf $(INSTALLDIR)/
+	echo "#!/bin/sh" >> ./tmp.sh
+	echo "# Copyright (C) Xi You Linux Group." >> ./tmp.sh
+	echo "# GPLv2 applies." >> ./tmp.sh
+	echo "java -jar "$(INSTALLDIR)"/xylftp.jar $$""@" >> ./tmp.sh
+	echo "" >> ./tmp.sh
+	chmod +x ./tmp.sh
+	mv ./tmp.sh $(BINDIR)/xylftp
+
+uninstall: clean
+	rm -rf $(INSTALLDIR)
+	rm -f $(BINDIR)/xylftp
+

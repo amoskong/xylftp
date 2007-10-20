@@ -477,7 +477,7 @@ static int _stat_mkd(const char *path)
 		_response(buf);
 		return 0;
 	} else {
-		if(errno == EEXIST){
+		if (errno == EEXIST) {
 			_stat_error1_501();
         	} 
 		else if (errno == ENAMETOOLONG) {
@@ -506,7 +506,7 @@ int do_rmd(const char *path)                /*处理命令RMD的入口*/
 			}
 			path = strcat(str,path);
 		}
-		if(_stat_rmd(path) == 0) {
+		if (_stat_rmd(path) == 0) {
 			return 0;
 		} else {
 			return -1;
@@ -553,7 +553,7 @@ int do_dele(const char *path)          /*处理命令DELE的入口*/
 			}
 			path = strcat(str,path);
 		}
-		if(_stat_dele(path) == 0) {
+		if (_stat_dele(path) == 0) {
 			return 0;
 		} else {
 			return -1;
@@ -569,11 +569,11 @@ int _stat_dele(const char *path)
 	const char msg[] = "250 File sucessfully deleted.\r\n";
 
 	debug_printf("dele at %s \r\n",path);
-	if(unlink(path) == 0) {	/*删除文件成功*/
+	if (unlink(path) == 0) {	/*删除文件成功*/
 		_response(msg);
 		return 0;
 	} else {
-		if(errno == ENOENT) {
+		if (errno == ENOENT) {
 			_stat_error3_501();
 		} else if (errno == ENAMETOOLONG) {
 			_stat_error2_501();
@@ -731,14 +731,14 @@ static int _get_local_ip_address(int sock, char* ip_addr)
 	ifc.ifc_len = sizeof buf;
 	ifc.ifc_buf = (caddr_t) buf;
 	if (!ioctl(fd, SIOCGIFCONF, (char*)&ifc)) {
-			intrface = ifc.ifc_len / sizeof(struct ifreq);
-			while (intrface-- > 0) {
-				if (!(ioctl(fd, SIOCGIFADDR, (char*)&buf[intrface]))) {
-					ip = (inet_ntoa(((struct sockaddr_in*)(&buf[intrface].ifr_addr))->sin_addr));
-					strcpy(ip_addr, ip);
-					break;
-				}
-			} 
+		intrface = ifc.ifc_len / sizeof(struct ifreq);
+		while (intrface-- > 0) {
+			if (!(ioctl(fd, SIOCGIFADDR, (char*)&buf[intrface]))) {
+				ip = (inet_ntoa(((struct sockaddr_in*)(&buf[intrface].ifr_addr))->sin_addr));
+				strcpy(ip_addr, ip);
+				break;
+			}
+		} 
 	} 
 	return 0;
 }
@@ -769,7 +769,7 @@ int do_pasv(void)
 	i = sizeof(cliaddr);
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
-	if(sock < 0) {
+	if (sock < 0) {
 		LOG_IT("socket error in do_pasv().");
 		return -errno;
 	} 
@@ -795,7 +795,7 @@ int do_pasv(void)
 		tmp++;
 	}
 
-	if(listen(sock, 1) != 0){
+	if (listen(sock, 1) != 0){
 		LOG_IT("listen error in do_pasv().");
 		return -errno;
 	}
@@ -865,7 +865,7 @@ int do_stru(char *arg)
 	if (strcmp(arg, "") == 0) {
 		_response(fail);
 		return -1;
-	} else if(strcasecmp(arg, "F") == 0) {
+	} else if (strcasecmp(arg, "F") == 0) {
 		_response(succ);
 	} else if (strcasecmp(arg, "P") == 0
 				|| strcasecmp(arg, "R") == 0) {
@@ -1044,14 +1044,14 @@ static int _analysis_ipaddr(char *str, char **re_addr, int *re_port)
 	int m;
 	int i = 0;
 	sscanf(str, "%d,%d,%d,%d,%d,%d", &ip[0], &ip[1], &ip[2], &ip[3], &port[0], &port[1]);
-	while(i < 4) {
-		if((ip[i] > 255) || (ip[i] < 0)) {
+	while (i < 4) {
+		if ((ip[i] > 255) || (ip[i] < 0)) {
 			return -1;
 		}
 		i++;
 	} 
 	m = port[0]*256 + port[1];
-	if(m < 0) {
+	if (m < 0) {
 		return -1;	
 	}
 	snprintf(addr, 16, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
@@ -1175,7 +1175,7 @@ int do_stor(char *arg)
 		LOG_IT("Open error in do_stor().");
 		return -errno;
 	}
-	if((off_t)-1 == lseek(fd, user_env.restartat, SEEK_SET)){
+	if ((off_t)-1 == lseek(fd, user_env.restartat, SEEK_SET)){
 		r_close(fd);
 		LOG_IT("lseek error in do_stor().");
 		return -errno;
@@ -1185,7 +1185,7 @@ int do_stor(char *arg)
 	debug_printf("%s create OK! \n", pathname);
 
 	sd = user_env.data_fd;	
-	for(;;){
+	for (;;) {
 		rsize = read(sd, buff, BUF_LEN);
 		if(rsize == 0) {
 			break;
@@ -1265,7 +1265,7 @@ int do_site(const char *args)
 	const char fail_msg[] = "550 Can't chmod.\r\n";
 	const char no_msg[] = "502 Command not implemented.\r\n";
 
-	if(!strncasecmp("CHMOD ", args, 6)) {
+	if (!strncasecmp("CHMOD ", args, 6)) {
 		mode_t mode;
 		const char *filename;
 		char buf[256] = {0,};
@@ -1277,13 +1277,13 @@ int do_site(const char *args)
 		}
 		args += 5;
 		mode = strtol(args, (char**)&args, 8);
-		while(*args && isspace(*args))
+		while (*args && isspace(*args))
 			args++;
 		filename = args;
 
 		debug_printf("mode=%d, filename=%s\n", mode, args);
 
-		if(!getcwd(buf, 128) ||
+		if (!getcwd(buf, 128) ||
 		   strlen(buf) + strlen(filename) + 1 > 256) {
 			_response(bad_msg);
 			return -1;
@@ -1354,7 +1354,7 @@ int do_nlst(const char *path)
 	char **words;
 	wordexp_t wxp;
 
-	if(path[0]!='/')	{
+	if (path[0]!='/') {
 		if ((user_env.current_path[strlen(user_env.current_path) - 1]) == '/') {
 			snprintf(buf, BUF_LEN, "%s%s", user_env.current_path, path);
 		} else {

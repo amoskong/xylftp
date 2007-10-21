@@ -9,7 +9,7 @@ BINDIR=/usr/bin
 JAVAC=javac
 
 all:	XylFTPMain.java XylFTPConnection.java XylTelnetConnection.java XylFTPInterface.java XylFTPCLI.java XylFTPException.java
-	$(JAVAC) XylFTPMain.java
+	$(JAVAC) *.java
 
 check:
 ifdef JAVA_HOME
@@ -27,7 +27,7 @@ else
 endif
 
 debug:  XylFTPMain.java XylFTPConnection.java XylTelnetConnection.java XylFTPInterface.java XylFTPCLI.java XylFTPException.java
-	$(JAVAC) -g:lines,vars,source XylFTPMain.java
+	$(JAVAC) -g:lines,vars,source *.java
 
 clean:
 	rm -f ./*.class ./*.jar

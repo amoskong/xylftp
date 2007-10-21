@@ -44,7 +44,7 @@ xylftp.debug: xylftp.h xylftp.c read_configure.c write_log.c xylsocket.c telnet.
 install: all
 	mkdir -p /etc/xylftp
 	touch /etc/xylftp/xylftp.pass
-	install -m 744 ../doc/xylftp.conf /etc/xylftp/
+	install -m 644 ../doc/xylftp.conf /etc/xylftp/
 	install -m 744 ./xylftp /usr/bin/
 
 uninstall: clean

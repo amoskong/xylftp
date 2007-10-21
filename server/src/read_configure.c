@@ -164,7 +164,8 @@ static int _analyze_para(char *buf,int *array)
 		goto ret;
 	}
 /*codes above are used to value the parameters of the struct run_env*/
-
+	free(value);
+	free(option);
 	return 0;
 ret:
 	free(run_env.user_pass_file);	/*free the memory*/
@@ -178,7 +179,6 @@ ret0:
 	free(option);			/*free the memory*/
 	return -1;
 }
-
 
 int read_configure()
 {

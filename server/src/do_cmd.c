@@ -5,14 +5,20 @@
  * 文件名称：命令处理
  * 摘    要：处理MKD RMD DELE PASV STOR命令
  * 
- * 当前版本：1.1
+ * 当前版本：1.2
+ *
+ * 修 改 者：刘洋
+ * 修改日期：2007年12月8日
+ * 修改原因：LIST与STAT中的日期格式不符合要求，在很多图形界面客户端中出现问题，故更改之。
+ *
  * 作    者：聂海海 王亚刚 郭拓 贾孟树
  * 完成日期：2007年5月30日
  * 修 改 者：刘洋 林峰 王聪 聂海海
  * 修改日期：2007年6月16日
- * 取代版本：1.0
+ * 取代版本：1.1
  * 摘    要：原来增加的命令不很符合要求，重建此文件。全部根据要求，现将命令单独在test目录中通过的逐条加入。
- * 今天仅加入STAT。
+ * 此次加入命令STAT。
+
  *14日加入USER。
  *6.15: 修正英文语法错误，排版错误。
  *6.16: 添加do_mkd，do_rmd, do_dele, do_retr
@@ -197,16 +203,34 @@ int do_pass(char *pass)
 
 /*implement of STAT*/
 
-static char* _get_line_info(struct stat *stat_buf, char *buf, int *width)
+static char *_format_time(struct stat *stat_buf, char *str)
+{
+	const char month[][4] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	struct tm tmp; 
+
+	gmtime_r(&(stat_buf->st_mtime), &tmp);
+
+	if (S_ISDIR(stat_buf->st_mode)) {
+		snprintf(str, strlen(str), "%s %2d  %4d", month[tmp.tm_mon], tmp.tm_mday, tmp.tm_year + 1900);
+	}
+	else {
+		snprintf(str, strlen(str), "%s %2d %2d:%2d", month[tmp.tm_mon], tmp.tm_mday, tmp.tm_hour, tmp.tm_min);
+	}
+
+	return str;
+}
+
+static char *_get_line_info(struct stat *stat_buf, char *buf, int *width)
 {
 	char att[11] = "----------", tm[26];
+	char time_str_buff[] = "Dec 12, 18:00";
 	unsigned int t = S_IRUSR;
 	int i;
 
 	if (S_ISREG(stat_buf->st_mode)) {
 		att[0] = '-';
 	}
-
 	else if (S_ISDIR(stat_buf->st_mode)) {
 		att[0] = 'd';
 	}
@@ -236,7 +260,7 @@ static char* _get_line_info(struct stat *stat_buf, char *buf, int *width)
 			}
 		}
 	}
-	if (snprintf(tm, 25, "%s", ctime(&(stat_buf->st_ctime))) == -1) {
+	if (snprintf(tm, 25, "%s", _format_time(stat_buf, time_str_buff)) == -1) {
 		write_log("Read system time error!", 0);
 	}
 	if (snprintf(buf, MAX_PATH, "%s% *d %*s %*s% *d %s", att, width[2], (size_t)stat_buf->st_nlink, width[0],
@@ -393,6 +417,10 @@ int do_list(char *filename)
 	wordexp(buf, &wxp, 0);
 	w = wxp.we_wordv;
 	for (i=0; i < wxp.we_wordc; i++){
+		if (*w[i] == '.') {
+			continue;
+		}
+
 		if (stat(w[i], &file_inf) == 0) {
 			if (!S_ISDIR(file_inf.st_mode)
 				|| (wxp.we_wordc!=1 || strcmp(w[0], buf) != 0)) {
@@ -415,6 +443,10 @@ int do_list(char *filename)
 
 		if((dir_inf_str = opendir(w[i])) != NULL){
 			while((dirp = readdir(dir_inf_str)) != NULL){
+				if (*(dirp->d_name) == '.') {
+					continue;
+				}
+
 				memset(each_dir_inf, 0, BUF_LEN);
 				memset(inte_dir_inf, 0, BUF_LEN);
 				snprintf(user_path, PATH_NAME_LEN, "%s/%s", w[i], dirp->d_name);

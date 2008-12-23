@@ -83,7 +83,7 @@ def changepass(myfile, n, newpass):
 	tmplist = lines[n-1].split("::")
 	m = md5.new()
 	m.update(newpass)
-	tmplist[3] = m.digest()+'\n'	#IMO, the final '\n' should be added by hand.
+	tmplist[3] = m.hexdigest()+'\n'	#IMO, the final '\n' should be added by hand.
 	lines[n-1] = string.join(tmplist, '::')
 	myfile.seek(0)
 	myfile.truncate()
@@ -130,7 +130,7 @@ def main():
 						password=sys.argv[3]
 					m = md5.new()
 					m.update(password)
-					addline(myfile, username+'::'+default_mod+'::'+m.digest())
+					addline(myfile, username+'::'+default_mod+'::'+m.hexdigest())
 			elif sys.argv[1] == 'del':
 				if len(sys.argv) == 3:
 					username = sys.argv[2]

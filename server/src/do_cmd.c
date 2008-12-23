@@ -100,6 +100,13 @@ int do_user(char username[])
 }
 /*implement of USER*/
 
+static char get_hex(const char *buf)
+{
+	char tmp[3];
+	strncpy(tmp, buf, 2);
+	return (char) strtol(tmp, NULL, 16);
+}
+
 /*implement of PASS*/
 int do_pass(char *pass)
 {
@@ -179,7 +186,8 @@ int do_pass(char *pass)
 	}
 
 	for (j = 0; j < 16; ) {
-		password[j++] = tmp[i++];
+		password[j++] = get_hex(tmp+i);
+		i += 2;
 	}
 	free(line);
 

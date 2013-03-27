@@ -1,0 +1,11 @@
+
+要做的一些工作：
+
+1. 更严格的测试。
+
+2. 进一步完善XylFTPException类和异常处理。
+
+3. 添加debug，verbose和quote命令。
+
+4. 添加图形界面。
+

@@ -1,0 +1,98 @@
+			客户端编码风格(Coding Style For XylFTP client)
+
+								作者：王聪
+
+1. 类名，类成员名，类方法名，参数名
+
+这些名字都应该是有意义的，一些缩写是鼓励使用的，但至少应该让人看了能大体知道它表示的意思。
+如果名字由多个单词组成，通过大写第一个字母来分界（第一个单词的第一个字母应该永远大写）。比如：
+
+class MyName{
+	private String Name;
+	public void SetName(String NewName){
+		...
+	}
+	...
+}
+
+而不是
+
+class myname{
+	private String name;
+	public void setName(String newName);
+	...
+}
+
+同样，myName和my_name也是不赞成使用的风格。
+
+常用缩写如全为大写，则保持不变，例如XylFTPCLI要比XylFtpCli要好。
+
+注意：函数内部自己定义的局部变量可以不受这些条件的制约。
+
+2. 花括号
+
+一对花括号的前一半（{）应该紧跟它附属的语句，声明等，而后一半（}）应该和此语句开始对齐。比如：
+
+if (ThisIsTrue) {
+	....
+} else {
+	...
+}
+
+而不应该是
+
+if (ThisIsTrue) 
+{
+	...
+}
+else
+{
+	...
+}
+
+3. 注释
+
+除为javadoc生成文档用的注释外，其它一律采用//风格的注释。
+
+编写javadoc注释时可参考下面的文章：
+http://hedong.3322.org/archives/000242.html
+
+4. 缩进
+ 
+缩进一律采用8个空格宽度的tab，请正确设置自己的编辑器，并且注意，不要让你的编辑器把tab替换为连续的空格。
+需要额外指出的是switch语句，它里面的case应该和switch对齐，比如：
+
+switch (Status) {
+case 1:
+	...
+	break;
+case 2:
+	...
+	break;
+default:
+	...
+}
+
+5. 空白
+
+用空格分隔如下关键字：
+try, catch, if, else, else if, for, while, switch
+
+除了判断相等的操作符之外，操作符和操作数之间最好也用空格分开，比如：
+
+if (i==1 && p!=null) {
+	i = j;
+	String foo = "";
+	foo = foo + p;
+}
+
+6. 进一步阅读
+
+关于Java编码风格，下面这篇文章做了更仔细的介绍：
+http://www.welog.org/blog/44
+
+对编程风格更深入的介绍可参考：
+1. Brian W. Kernighan and Rob Pike, The Practice of Programming, Addison-Wesley, 1999.
+2. W. Kernighan and PJ Plauger, The Elements of Programming Style,  2nd Edition, Computing Mcgraw-Hill, 1978.
+
+

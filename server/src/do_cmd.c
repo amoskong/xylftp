@@ -1208,7 +1208,7 @@ int do_stor(char *arg)
 
 	debug_printf("pathname=%s.\n", pathname);
 
-	fd = open(pathname, O_RDWR|O_CREAT);
+	fd = open(pathname, NULL, O_RDWR|O_CREAT);
 	if (fd < 0) {
 		_response("550 Permission denied.\r\n");
 		close(user_env.data_fd);

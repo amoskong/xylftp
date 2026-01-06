@@ -6,12 +6,12 @@
 
 CC=gcc
 CFLAGS= -Wall -W -Wcast-align -Wstrict-prototypes -Wshadow
-LDFLAGS= -lssl
+LDFLAGS= -lssl -lcrypto
 
 all: xylftp
 
 xylftp: xylftp.o read_configure.o write_log.o xylsocket.o telnet.o parse_cmd.o do_cmd.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -O2 -Os -o $@ $^
+	$(CC) $(CFLAGS) -O2 -Os -o $@ $^ $(LDFLAGS)
 
 xylftp.o: xylftp.c
 	$(CC) $(CFLAGS) -O2 -c -o $@ $^
@@ -32,14 +32,14 @@ parse_cmd.o: parse_cmd.c
 	$(CC) $(CFLAGS) -O2 -c -o $@ $^
 
 do_cmd.o: do_cmd.c
-	$(CC) $(CFLAGS) -O2 -c -o $@ $^
+	$(CC) $(CFLAGS) -O2 -c -o $@ $^ $(LDFLAGS)
 
 clean:
 	rm -f *.o xylftp xylftp.debug
 
 debug: xylftp.debug
 xylftp.debug: xylftp.h xylftp.c read_configure.c write_log.c xylsocket.c telnet.c parse_cmd.c do_cmd.h do_cmd.c debug.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG -ggdb -o $@ $^
+	$(CC) $(CFLAGS) -DDEBUG -ggdb -o $@ $^ $(LDFLAGS)
 
 install: all
 	mkdir -p /etc/xylftp

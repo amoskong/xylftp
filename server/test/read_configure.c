@@ -39,7 +39,7 @@ void print(void)
 	printf("run_env.data_connection_timeout = %d \n",run_env.data_connection_timeout);
 	printf("run_env.ftpd_banner = %s\n",run_env.ftpd_banner);
 	printf("run_env.max_clients = %d\n",run_env.max_clients);
-	printf("run_env.max_links = %d\n",run_env.max_links);
+	printf("run_env.max_connections = %d\n",run_env.max_connections);
 	printf("run_env.passive_port = %d,%d\n",run_env.passive_port_min,run_env.passive_port_max);
 	printf("run_env.ftp_dir = %s\n",run_env.ftp_dir);
 	printf("run_env.user_pass_file = %s\n",run_env.user_pass_file);
@@ -114,8 +114,8 @@ int _analyze_para(char *buf,int *array)
 	} else if (!strcmp(option,"Max_clients")) {
 		run_env.max_clients = (unsigned int)(atoi(value));
 		array[8] = 1;
-	} else if (!strcmp(option,"Max_links")) {
-		run_env.max_links = (unsigned int)(atoi(value));
+	} else if (!strcmp(option,"Max_connections")) {
+		run_env.max_connections = (unsigned int)(atoi(value));
 		array[9] = 1;
 	} else if (!strcmp(option,"Passive_port")) {
 		if ((tmp = strtok_r(value,",",&saveptr2)) == NULL) {
@@ -270,7 +270,7 @@ int _check_configure(int *array)
 		fprintf(stderr,"no Max_clients item or error\n");
 	}
 	if (!array[9]) {
-		fprintf(stderr,"no Max_links item or error\n");
+		fprintf(stderr,"no Max_connections item or error\n");
 	}
 	if (!array[10]) {
 		fprintf(stderr,"no Passive_port item or error\n");

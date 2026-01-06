@@ -6,7 +6,7 @@
 
 CC=gcc
 CFLAGS= -Wall -W
-LDFLAGS= -lssl
+LDFLAGS= -lssl -lcrypto
 
 prepare:
 	cp ../src/xylftp.h ./
@@ -15,19 +15,19 @@ prepare:
 all: prepare do_stat read_configure test_parse_cmd do_mode test_do_pass
 
 do_stat: do_stat.c 
-	$(CC) $(CFLAGS) $(LDFLAGS) -DDEGUG -ggdb -o $@ $^
+	$(CC) $(CFLAGS) -DDEBUG -ggdb -o $@ $^ $(LDFLAGS)
 
 read_configure: read_configure.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG -ggdb -o $@ $^
+	$(CC) $(CFLAGS) -DDEBUG -ggdb -o $@ $^ $(LDFLAGS)
 
 test_parse_cmd:test_parse_cmd.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG -ggdb -o $@ $^
+	$(CC) $(CFLAGS) -DDEBUG -ggdb -o $@ $^ $(LDFLAGS)
 
 do_mode: do_mode.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG -ggdb -o $@ $^
+	$(CC) $(CFLAGS) -DDEBUG -ggdb -o $@ $^ $(LDFLAGS)
 
 test_do_pass: test_do_pass.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG -ggdb -o $@ $^
+	$(CC) $(CFLAGS) -DDEBUG -ggdb -o $@ $^ $(LDFLAGS)
 
 clean:
 	rm -f do_stat read_configure test_parse_cmd do_mode test_do_pass

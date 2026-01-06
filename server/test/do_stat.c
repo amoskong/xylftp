@@ -242,7 +242,7 @@ int do_stat(const char *cmd_arg)
 
 int main(void)
 {
-	user_env.client_ip = "192.168.0.1";
+	strcpy(user_env.client_ip, "192.168.0.1");
 	strcpy(user_env.user_name,"Anonymous");
 	user_env.upload_files = 1;
 	user_env.upload_kbytes = 10;
